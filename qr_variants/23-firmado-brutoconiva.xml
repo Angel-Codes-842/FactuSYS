@@ -1,0 +1,187 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rDE xmlns="http://ekuatia.set.gov.py/sifen/xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd">
+  <dVerFor>150</dVerFor>
+  <DE Id="01800000005001001000004222026060412331888508">
+    <dDVId>8</dDVId>
+    <dFecFirma>2026-06-04T20:00:00</dFecFirma>
+    <dSisFact>1</dSisFact>
+    <gOpeDE>
+      <iTipEmi>1</iTipEmi>
+      <dDesTipEmi>Normal</dDesTipEmi>
+      <dCodSeg>233188850</dCodSeg>
+      <dInfoEmi>1</dInfoEmi>
+      <dInfoFisc>TEST</dInfoFisc>
+    </gOpeDE>
+    <gTimb>
+      <iTiDE>1</iTiDE>
+      <dDesTiDE>Factura electrónica</dDesTiDE>
+      <dNumTim>12345678</dNumTim>
+      <dEst>001</dEst>
+      <dPunExp>001</dPunExp>
+      <dNumDoc>0000042</dNumDoc>
+      <dSerieNum>TS</dSerieNum>
+      <dFeIniT>2026-01-01</dFeIniT>
+    </gTimb>
+    <gDatGralOpe>
+      <dFeEmiDE>2026-06-04T20:00:00</dFeEmiDE>
+      <gOpeCom>
+        <iTipTra>1</iTipTra>
+        <dDesTipTra>Venta de mercadería</dDesTipTra>
+        <iTImp>1</iTImp>
+        <dDesTImp>IVA</dDesTImp>
+        <cMoneOpe>PYG</cMoneOpe>
+        <dDesMoneOpe>Guarani</dDesMoneOpe>
+      </gOpeCom>
+      <gEmis>
+        <dRucEm>80000000</dRucEm>
+        <dDVEmi>5</dDVEmi>
+        <iTipCont>2</iTipCont>
+        <cTipReg>3</cTipReg>
+        <dNomEmi>TEST SOFTWARE SRL</dNomEmi>
+        <dNomFanEmi>TEST SOFTWARE SRL</dNomFanEmi>
+        <dDirEmi>AV PRUEBA 123</dDirEmi>
+        <dNumCas>0</dNumCas>
+        <cDepEmi>1</cDepEmi>
+        <dDesDepEmi>CAPITAL</dDesDepEmi>
+        <cDisEmi>1</cDisEmi>
+        <dDesDisEmi>ASUNCION (DISTRITO)</dDesDisEmi>
+        <cCiuEmi>1</cCiuEmi>
+        <dDesCiuEmi>ASUNCION (DISTRITO)</dDesCiuEmi>
+        <dTelEmi>021999000</dTelEmi>
+        <dEmailE>factusys@test.com</dEmailE>
+        <dDenSuc>CASA MATRIZ</dDenSuc>
+        <gActEco>
+          <cActEco>46510</cActEco>
+          <dDesActEco>COMERCIO AL POR MAYOR DE EQUIPOS INFORMÁTICOS Y SOFTWARE</dDesActEco>
+        </gActEco>
+      </gEmis>
+      <gDatRec>
+        <iNatRec>1</iNatRec>
+        <iTiOpe>1</iTiOpe>
+        <cPaisRec>PRY</cPaisRec>
+        <dDesPaisRe>Paraguay</dDesPaisRe>
+        <iTiContRec>2</iTiContRec>
+        <dRucRec>12345678</dRucRec>
+        <dDVRec>9</dDVRec>
+        <dNomRec>EMPRESA DE PRUEBA SA</dNomRec>
+        <dDirRec>AV TEST 456</dDirRec>
+        <dNumCasRec>0</dNumCasRec>
+        <cDepRec>1</cDepRec>
+        <dDesDepRec>CAPITAL</dDesDepRec>
+        <cDisRec>1</cDisRec>
+        <dDesDisRec>ASUNCION (DISTRITO)</dDesDisRec>
+        <cCiuRec>1</cCiuRec>
+        <dDesCiuRec>ASUNCION (DISTRITO)</dDesCiuRec>
+        <dTelRec>021123456</dTelRec>
+        <dCodCliente>001</dCodCliente>
+      </gDatRec>
+    </gDatGralOpe>
+    <gDtipDE>
+      <gCamFE>
+        <iIndPres>1</iIndPres>
+        <dDesIndPres>Operación presencial</dDesIndPres>
+      </gCamFE>
+      <gCamCond>
+        <iCondOpe>1</iCondOpe>
+        <dDCondOpe>Contado</dDCondOpe>
+        <gPaConEIni>
+          <iTiPago>1</iTiPago>
+          <dDesTiPag>Efectivo</dDesTiPag>
+          <dMonTiPag>55000.00</dMonTiPag>
+          <cMoneTiPag>PYG</cMoneTiPag>
+          <dDMoneTiPag>Guarani</dDMoneTiPag>
+        </gPaConEIni>
+      </gCamCond>
+      <gCamItem>
+        <dCodInt>TEST001</dCodInt>
+        <dDesProSer>DOCUMENTO ELECTRÓNICO SIN VALOR COMERCIAL NI FISCAL - GENERADO EN AMBIENTE DE PRUEBA</dDesProSer>
+        <cUniMed>77</cUniMed>
+        <dDesUniMed>UNI</dDesUniMed>
+        <dCantProSer>10</dCantProSer>
+        <dInfItem>Test item - SIFEN homologacion</dInfItem>
+        <gValorItem>
+          <dPUniProSer>5000.00</dPUniProSer>
+          <dTotBruOpeItem>55000.00</dTotBruOpeItem>
+          <gValorRestaItem>
+            <dDescItem>0.00</dDescItem>
+            <dPorcDesIt>0.00</dPorcDesIt>
+            <dDescGloItem>0.00</dDescGloItem>
+            <dTotOpeItem>55000.00</dTotOpeItem>
+          </gValorRestaItem>
+        </gValorItem>
+        <gCamIVA>
+          <iAfecIVA>1</iAfecIVA>
+          <dDesAfecIVA>Gravado IVA</dDesAfecIVA>
+          <dPropIVA>100.00</dPropIVA>
+          <dTasaIVA>10.00</dTasaIVA>
+          <dBasGravIVA>50000.00</dBasGravIVA>
+          <dBasExe>0.00</dBasExe>
+          <dLiqIVAItem>5000.00</dLiqIVAItem>
+        </gCamIVA>
+      </gCamItem>
+    </gDtipDE>
+    <gTotSub>
+      <dSubExe>0.00</dSubExe>
+      <dSubExo>0.00</dSubExo>
+      <dSub5>0.00</dSub5>
+      <dSub10>50000.00</dSub10>
+      <dTotOpe>55000.00</dTotOpe>
+      <dTotDesc>0.00</dTotDesc>
+      <dTotDescGlotem>0.00</dTotDescGlotem>
+      <dTotAntItem>0.00</dTotAntItem>
+      <dTotAnt>0.00</dTotAnt>
+      <dPorcDescTotal>0.00</dPorcDescTotal>
+      <dDescTotal>0.00</dDescTotal>
+      <dAnticipo>0.00</dAnticipo>
+      <dRedon>0.00</dRedon>
+      <dTotGralOpe>55000.00</dTotGralOpe>
+      <dIVA5>0.00</dIVA5>
+      <dIVA10>5000.00</dIVA10>
+      <dTotIVA>5000.00</dTotIVA>
+      <dBaseGrav5>0.00</dBaseGrav5>
+      <dBaseGrav10>50000.00</dBaseGrav10>
+      <dTBasGraIVA>50000.00</dTBasGraIVA>
+    </gTotSub>
+  </DE>
+  <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+    <ds:SignedInfo>
+      <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+      <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+      <ds:Reference URI="#01800000005001001000004222026060412331888508">
+        <ds:Transforms>
+          <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+          <ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+        </ds:Transforms>
+        <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+        <ds:DigestValue>N0XBpQYO+wNrcKAr6kDEklLtjdU0qbPUOhFWknW0RtU=</ds:DigestValue>
+      </ds:Reference>
+    </ds:SignedInfo>
+    <ds:SignatureValue>iAPaE7m2PzQwj/Xl6ZZ6d6Nhd1IKfDxq3r86g/KdoCjWFVm0SI08zGo1j88M+Y7azbtVG90+IdTvlS387S4eSih6t4kJx1Q1wBCfsRzDbKpA/iWd+NUv6ArfKiej2Rdibagc+90PpX8LZu9DT6KL/xjJVC6LRO98PgxDTdgPNI/2+CZ3c/b8UbqMkanXdZHmCZfs7KHGs9AhvgeAjv5LjigJQVAI3fAeX3AHYNVoKpw7aipIpGWCIAV9kQJiRnlPGgi6TPwePqsZjix/WHC+HUrv4RDJjjjMr55vFvpXSero3G32K+sDWh+q+BSBC+gJygWRqNV6fX+9j957EVU7HA==</ds:SignatureValue>
+    <ds:KeyInfo>
+      <ds:X509Data>
+        <ds:X509Certificate>MIIDQzCCAiugAwIBAgIUYwB2ppEytwacAfUDlYf0oGvf/w8wDQYJKoZIhvcNAQEL
+BQAwMTELMAkGA1UEBhMCUFkxDTALBgNVBAoMBFRlc3QxEzARBgNVBAMMClRlc3Qg
+U0lGRU4wHhcNMjYwNjA0MTgyOTM3WhcNMzYwNjAxMTgyOTM3WjAxMQswCQYDVQQG
+EwJQWTENMAsGA1UECgwEVGVzdDETMBEGA1UEAwwKVGVzdCBTSUZFTjCCASIwDQYJ
+KoZIhvcNAQEBBQADggEPADCCAQoCggEBALIXtChjAy4O9KVTonHGDAC7sY11fYln
+iaKnAZMvyQGOY8MaLr3vOIvAwV2iLI+gu9r6BSa1XM3uZq36VG72I71MbIG95FaN
+/3Wr4CTrU3sun10zOPRk4OEKKkaO17N8F1DyqeCkvhwohhETdajd9cEcYsq9djTN
+8yiVerJGCbDSpeaOfZQXAIOl0gj6T6biFtjNCOi6Lar+CyhrzBZAfxGa1MWBOjHu
+MHXQvyQkGU6HSnrFIjgzf4R9RgwraFsNY7QRLNgi5evhjEA0NAcmIkMG3IwasEpz
+hjRVkwClsHw+OWEgbFhQ47yejVGyNmnDN7XYpnSQWh+abTvrLqA9UksCAwEAAaNT
+MFEwHQYDVR0OBBYEFI2xoe9sSY8BDdHfprt9eX9rgYKVMB8GA1UdIwQYMBaAFI2x
+oe9sSY8BDdHfprt9eX9rgYKVMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEL
+BQADggEBAHj4Ettuq16HoQIxBijxTvSeqfPuv31zxlrg5DrC5bnLPQS2SIsok7QH
+l/ZsNR8qo3NzJtr17tPONhMHqwOYo+KS6vzuW5qy95rYok1E1+ThEbi14qppHsX8
+wPlqPIi/dHDhBFEO0s+MJJblOycvsmX8hP8fXsrMJMFqTpsigFJ6kGlnxOluCDgy
+8OelTHpZwFXKTnUPGEzUEq6xUOENMETQeswxWflmTteQxbEw05QdJfDlTNch9NTT
+8WP3LQng3ytRfuqFs8bq508vJGXlWtFKs2DeRPXRVBCInsnrWLEe5dy7O/KKuIzU
+E5d3AiQkiOWJyyyGOXhJ3TxjT+REsgM=
+</ds:X509Certificate>
+      </ds:X509Data>
+    </ds:KeyInfo>
+  </ds:Signature>
+  <gCamFuFD>
+    <dCarQR>https://ekuatia.set.gov.py/consultas-test/qr?nVersion=150&amp;Id=01800000005001001000004222026060412331888508&amp;dFeEmiDE=323032362D30362D30345432303A30303A3030&amp;dRucRec=12345678&amp;dTotGralOpe=55000.00&amp;dTotIVA=5000.00&amp;cItems=1&amp;DigestValue=4E3058427051594F2B774E72634B4172366B44456B6C4C746A645530716250554F6846576B6E57305274553D&amp;IdCSC=0001&amp;cHashQR=9EA3723DDE10B483EA5E43A9BE1AB74CC36D269EC479EE3E444C23C1E9C2A311</dCarQR>
+  </gCamFuFD>
+</rDE>

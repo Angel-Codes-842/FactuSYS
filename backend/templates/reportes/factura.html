@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  {% if factura.tipo == 'ticket' %}
+  @page { margin: 2mm 3mm; size: 80mm auto; }
+  body { font-family: 'DejaVu Sans Mono', 'DejaVu Sans', sans-serif; font-size: 10px; color: #000; line-height: 1.2; }
+  .header { text-align: center; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
+  .header h1 { margin: 0 0 2px; font-size: 14px; }
+  .header p { margin: 1px 0; font-size: 9px; }
+  .logo { max-height: 50px; margin-bottom: 4px; }
+  .info-table { width: 100%; margin-bottom: 6px; font-size: 9px; }
+  .info-table td { vertical-align: top; padding: 1px 2px; }
+  .info-table .label { font-weight: bold; width: 60px; }
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 9px; }
+  .items-table th { padding: 3px 2px; text-align: left; border-top: 1px solid #000; border-bottom: 1px solid #000; font-size: 8px; }
+  .items-table td { padding: 2px 2px; }
+  .items-table tr:last-child td { border-bottom: 1px solid #000; }
+  .totals { width: 100%; font-size: 10px; margin-bottom: 6px; }
+  .totals td { padding: 2px 2px; }
+  .totals .total-row td { font-weight: bold; font-size: 12px; border-top: 1px solid #000; padding-top: 4px; }
+  .footer { text-align: center; font-size: 8px; border-top: 1px dashed #000; padding-top: 6px; margin-top: 6px; }
+  .footer .pie { margin-top: 3px; font-size: 9px; font-style: italic; }
+  .status-badge { font-weight: bold; }
+  .pagos-table { width: 100%; font-size: 9px; margin-top: 6px; }
+  .pagos-table th { padding: 2px; text-align: left; border-bottom: 1px solid #000; }
+  .pagos-table td { padding: 1px 2px; }
+  .motivo-nota { border: 1px dashed #000; padding: 4px 6px; margin-bottom: 6px; font-size: 9px; }
+  .separator { text-align: center; font-size: 8px; margin: 4px 0; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  {% else %}
+  @page { margin: 2cm; size: A4; }
+  body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; color: #333; }
+  .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1a73e8; padding-bottom: 15px; }
+  .header h1 { color: #1a73e8; margin: 0 0 5px; font-size: 24px; }
+  .header p { margin: 2px 0; color: #666; }
+  .logo { max-height: 80px; margin-bottom: 10px; }
+  .info-table { width: 100%; margin-bottom: 20px; }
+  .info-table td { vertical-align: top; padding: 3px 5px; }
+  .info-table .label { font-weight: bold; width: 120px; color: #555; }
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .items-table th { background: #1a73e8; color: white; padding: 8px 10px; text-align: left; font-size: 11px; }
+  .items-table td { padding: 6px 10px; border-bottom: 1px solid #ddd; }
+  .items-table tr:nth-child(even) { background: #f8f9fa; }
+  .totals { width: 100%; max-width: 350px; margin-left: auto; }
+  .totals td { padding: 4px 10px; }
+  .totals .total-row td { font-weight: bold; font-size: 14px; border-top: 2px solid #333; padding-top: 8px; }
+  .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 10px; }
+  .footer .pie { margin-top: 5px; font-size: 11px; color: #666; font-style: italic; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+  .status-pagada { background: #d4edda; color: #155724; }
+  .status-pendiente { background: #fff3cd; color: #856404; }
+  .status-anulada { background: #f8d7da; color: #721c24; }
+  .status-vencida { background: #f8d7da; color: #721c24; }
+  .pagos-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  .pagos-table th { background: #e9ecef; padding: 5px 8px; text-align: left; font-size: 11px; }
+  .pagos-table td { padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 11px; }
+  .motivo-nota { background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px 12px; margin-bottom: 15px; font-size: 11px; }
+  .right { text-align: right; }
+  {% endif %}
+</style>
+</head>
+<body>
+
+{% if factura.tipo == 'ticket' %}
+  {# ----- ESTILO TICKET 80mm ----- #}
+  <div class="header">
+    {% if config.logo %}<img src="{{ config.logo.url }}" class="logo" alt="Logo">{% endif %}
+    <h1>{{ empresa }}</h1>
+    <p>{{ config.ruc|default:"—" }}</p>
+    <p>{{ config.direccion|default:"" }}{% if config.direccion and config.telefono %} — {% endif %}{{ config.telefono|default:"" }}</p>
+    <p>{{ ciudad }}, {{ pais }}</p>
+  </div>
+
+  <div class="separator">════════════════════════════════════════</div>
+
+  <table class="info-table">
+    <tr><td class="label">Cliente:</td><td>{{ factura.cliente.nombre|default:"Consumidor Final" }}</td></tr>
+    <tr><td class="label">RUC/CI:</td><td>{{ factura.cliente.ruc_ci|default:"—" }}</td></tr>
+    <tr><td class="label">Fecha:</td><td>{{ factura.fecha_emision|date:"d/m/Y H:i" }}</td></tr>
+    <tr><td class="label">Nº Ticket:</td><td>{{ factura.numero }}</td></tr>
+  </table>
+
+  <div class="separator">────────────────────────────────────</div>
+
+  <table class="items-table">
+    <thead><tr><th>Cant.</th><th>Producto</th><th class="right">Precio</th><th class="right">Total</th></tr></thead>
+    <tbody>
+      {% for d in detalles %}
+      <tr>
+        <td>{{ d.cantidad }}</td>
+        <td>{{ d.producto.nombre }}</td>
+        <td class="right">{{ moneda_simbolo }}{{ d.precio_unitario|floatformat:0 }}</td>
+        <td class="right">{{ moneda_simbolo }}{{ d.total_linea|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="separator">────────────────────────────────────</div>
+
+  <table class="totals">
+    <tr><td>Subtotal:</td><td class="right">{{ moneda_simbolo }}{{ factura.subtotal|floatformat:0 }}</td></tr>
+    <tr><td>IVA {{ iva_pct }}%:</td><td class="right">{{ moneda_simbolo }}{{ factura.iva_10|floatformat:0 }}</td></tr>
+    <tr class="total-row"><td>TOTAL:</td><td class="right">{{ moneda_simbolo }}{{ factura.total|floatformat:0 }}</td></tr>
+  </table>
+
+  {% if pagos %}
+  <div class="separator">────────────────────────────────────</div>
+  <table class="pagos-table">
+    <thead><tr><th>Fecha</th><th class="right">Monto</th><th>Método</th></tr></thead>
+    <tbody>
+      {% for p in pagos %}
+      <tr>
+        <td>{{ p.fecha|date:"d/m H:i" }}</td>
+        <td class="right">{{ moneda_simbolo }}{{ p.monto|floatformat:0 }}</td>
+        <td>{{ p.metodo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="separator">════════════════════════════════════════</div>
+
+  <div class="footer">
+    <p>Documento interno sin validez fiscal</p>
+    <p>{{ hoy|date:"d/m/Y H:i" }}</p>
+    {% if config.pie_factura %}
+    <p class="pie">{{ config.pie_factura }}</p>
+    {% endif %}
+  </div>
+
+{% else %}
+  {# ----- ESTILO A4 (facturas/notas) ----- #}
+  <div class="header">
+    {% if config.logo %}<img src="{{ config.logo.url }}" class="logo" alt="Logo">{% endif %}
+    <h1>{{ empresa }}</h1>
+    <p>{{ config.ruc|default:"—" }}</p>
+    <p>{{ config.direccion|default:"" }}{% if config.direccion and config.telefono %} — {% endif %}{{ config.telefono|default:"" }}</p>
+    <p>{{ ciudad }}, {{ pais }}</p>
+    {% if factura.timbrado %}
+    <p style="font-size: 13px; margin-top: 5px;">
+      <strong>Timbrado SET:</strong> {{ factura.timbrado.numero }}
+      — Válido: {{ factura.timbrado.fecha_inicio|date:"d/m/Y" }} al {{ factura.timbrado.fecha_fin|date:"d/m/Y" }}
+    </p>
+    {% endif %}
+    {% if factura.tipo_nota %}
+    <h2 style="margin-top: 10px;">
+      {% if factura.tipo_nota == 'credito' %}NOTA DE CRÉDITO{% else %}NOTA DE DÉBITO{% endif %}
+      {{ factura.numero }}
+    </h2>
+    {% else %}
+    <h2 style="margin-top: 10px;">FACTURA {{ factura.numero }}</h2>
+    {% endif %}
+  </div>
+
+  {% if factura.motivo_nota %}
+  <div class="motivo-nota">
+    <strong>Motivo:</strong> {{ factura.motivo_nota }}
+  </div>
+  {% endif %}
+
+  <table class="info-table">
+    <tr>
+      <td class="label">Cliente:</td>
+      <td>{{ factura.cliente.nombre|default:"Consumidor Final" }}</td>
+      <td class="label">Fecha Emisión:</td>
+      <td>{{ factura.fecha_emision|date:"d/m/Y H:i" }}</td>
+    </tr>
+    <tr>
+      <td class="label">RUC/CI:</td>
+      <td>{{ factura.cliente.ruc_ci|default:"—" }}</td>
+      <td class="label">Tipo:</td>
+      <td>{{ factura.get_tipo_display }}</td>
+    </tr>
+    <tr>
+      <td class="label">Dirección:</td>
+      <td>{{ factura.cliente.direccion|default:"—" }}</td>
+      <td class="label">Estado:</td>
+      <td><span class="status-badge status-{{ factura.estado }}">{{ factura.get_estado_display }}</span></td>
+    </tr>
+    {% if factura.timbrado_numero %}
+    <tr>
+      <td class="label">Timbrado Nº:</td>
+      <td colspan="3">{{ factura.timbrado_numero }}</td>
+    </tr>
+    {% endif %}
+  </table>
+
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width: 15%;">Código</th>
+        <th style="width: 35%;">Producto</th>
+        <th style="width: 10%;">Cant.</th>
+        <th style="width: 15%;">P. Unit.</th>
+        <th style="width: 10%;">IVA</th>
+        <th style="width: 15%;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in detalles %}
+      <tr>
+        <td>{{ d.producto.codigo }}</td>
+        <td>{{ d.producto.nombre }}</td>
+        <td>{{ d.cantidad }}</td>
+        <td>{{ moneda_simbolo }}{{ d.precio_unitario|floatformat:0 }}</td>
+        <td>{{ moneda_simbolo }}{{ d.iva_monto|floatformat:0 }}</td>
+        <td>{{ moneda_simbolo }}{{ d.total_linea|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Subtotal:</td><td style="text-align: right;">{{ moneda_simbolo }}{{ factura.subtotal|floatformat:0 }}</td></tr>
+    <tr><td>IVA {{ iva_pct }}%:</td><td style="text-align: right;">{{ moneda_simbolo }}{{ factura.iva_10|floatformat:0 }}</td></tr>
+    <tr class="total-row"><td>TOTAL:</td><td style="text-align: right;">{{ moneda_simbolo }}{{ factura.total|floatformat:0 }}</td></tr>
+  </table>
+
+  {% if pagos %}
+  <h3 style="margin-top: 25px;">Pagos</h3>
+  <table class="pagos-table">
+    <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th></tr></thead>
+    <tbody>
+      {% for p in pagos %}
+      <tr>
+        <td>{{ p.fecha|date:"d/m/Y H:i" }}</td>
+        <td>{{ moneda_simbolo }}{{ p.monto|floatformat:0 }}</td>
+        <td>{{ p.metodo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="footer">
+    <p>Generado el {{ hoy|date:"d/m/Y" }} - {{ empresa }} - {{ ciudad }}, {{ pais }}</p>
+    {% if factura.tipo_nota %}
+    <p>Documento electrónico — {{ factura.get_tipo_nota_display }}</p>
+    {% elif factura.tipo == 'ticket' %}
+    <p>Documento interno sin validez fiscal</p>
+    {% else %}
+    <p>Documento válido como factura — Timbrado SET {{ factura.timbrado.numero }}</p>
+    {% endif %}
+    {% if config.pie_factura %}
+    <p class="pie">{{ config.pie_factura }}</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+</body>
+</html>

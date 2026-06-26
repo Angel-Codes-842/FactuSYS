@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Docker
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+backend/backups/*.sql
+backend/backups/*.sql.gz
+backend/backups/*.log
+
+# Credentials and Local Envs
+.allnet_credentials
+.env.local
+.env.*.local
+*.local
+

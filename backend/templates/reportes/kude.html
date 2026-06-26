@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 10mm; size: A4; }
+  body { font-family: 'DejaVu Sans', sans-serif; font-size: 10pt; color: #333; }
+  .header { display: flex; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #003366; padding-bottom: 10px; }
+  .logo { max-height: 70px; margin-right: 15px; }
+  .empresa-info h1 { font-size: 14pt; margin: 0; color: #003366; }
+  .empresa-info p { margin: 2px 0; font-size: 8pt; }
+  .title { text-align: center; font-size: 12pt; font-weight: bold; color: #003366; margin: 10px 0; }
+  .cdc-box { background: #f5f5f5; border: 1px solid #ccc; padding: 8px; text-align: center; font-family: monospace; font-size: 9pt; margin: 10px 0; word-break: break-all; }
+  .qr-code { text-align: center; margin: 10px 0; }
+  .qr-code img { width: 120px; height: 120px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 8pt; }
+  th { background: #003366; color: white; padding: 5px; text-align: left; }
+  td { padding: 4px; border: 1px solid #ddd; }
+  .totals { text-align: right; margin-top: 10px; }
+  .totals table { width: auto; margin-left: auto; }
+  .totals td { padding: 3px 10px; }
+  .totals .grand-total { font-size: 12pt; font-weight: bold; color: #003366; }
+  .footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 7pt; text-align: center; color: #666; }
+  .protocolo { text-align: center; font-size: 8pt; margin: 5px 0; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  {% if logo_b64 %}
+    <img src="data:image/png;base64,{{ logo_b64 }}" class="logo">
+  {% endif %}
+  <div class="empresa-info">
+    <h1>{{ empresa.nombre|default:"" }}</h1>
+    <p>RUC: {{ empresa.ruc|default:"" }}</p>
+    <p>{{ empresa.direccion|default:"" }}</p>
+    <p>Tel: {{ empresa.telefono|default:"" }}</p>
+  </div>
+</div>
+
+<div class="title">DOCUMENTO TRIBUTARIO ELECTRÓNICO (DTE)</div>
+
+<div class="cdc-box">
+  <strong>CÓDIGO DE CONTROL (CDC):</strong><br>
+  {{ cdc }}
+</div>
+
+<div class="qr-code">
+  <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR">
+</div>
+
+<div class="protocolo">
+  {% if protocolo %}Nº Protocolo: {{ protocolo }} | {% endif %}
+  Fecha: {{ fecha_emision|date:"d/m/Y H:i" }}
+</div>
+
+<table>
+  <tr>
+    <th colspan="2">Datos del Comprobante</th>
+  </tr>
+  <tr><td><strong>Nº Factura:</strong></td><td>{{ factura.numero|default:"" }}</td></tr>
+  <tr><td><strong>Timbrado:</strong></td><td>{{ factura.timbrado_numero|default:"" }}</td></tr>
+  {% if factura.cliente %}
+  <tr><td><strong>Cliente:</strong></td><td>{{ factura.cliente.nombre }}</td></tr>
+  <tr><td><strong>RUC/CI:</strong></td><td>{{ factura.cliente.ruc_ci|default:"" }}</td></tr>
+  {% else %}
+  <tr><td><strong>Cliente:</strong></td><td>Consumidor Final</td></tr>
+  {% endif %}
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Descripción</th>
+      <th>Cant.</th>
+      <th>Precio Unit.</th>
+      <th>Subtotal</th>
+      <th>IVA</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in factura.detalles.all %}
+    <tr>
+      <td>{{ d.producto.codigo|default:"" }}</td>
+      <td>{{ d.producto.nombre }}</td>
+      <td>{{ d.cantidad }}</td>
+      <td>{{ d.precio_unitario|floatformat:0 }}</td>
+      <td>{{ d.subtotal|floatformat:0 }}</td>
+      <td>{{ d.iva_monto|floatformat:0 }}</td>
+      <td>{{ d.total_linea|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="totals">
+  <table>
+    <tr><td>Subtotal:</td><td>{{ factura.subtotal|floatformat:0 }}</td></tr>
+    <tr><td>IVA 10%:</td><td>{{ factura.iva_10|floatformat:0 }}</td></tr>
+    <tr class="grand-total"><td>Total:</td><td>{{ factura.total|floatformat:0 }}</td></tr>
+  </table>
+  <p style="font-size:8pt; margin-top:5px;">Son: {{ total_letras }} GUARANÍES {{ factura.total|floatformat:0 }}</p>
+</div>
+
+<div class="footer">
+  <p>Documento Tributario Electrónico generado según Manual Técnico SIFEN V150 - DNIT Paraguay</p>
+  <p>Verificar en: https://ekuatia.set.gov.py/consultas?cdc={{ cdc }}</p>
+</div>
+
+</body>
+</html>

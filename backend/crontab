@@ -1,0 +1,4 @@
+SHELL=/bin/sh
+MAILTO=""
+0 3 * * * /app/entrypoint-backup.sh
+0 * * * * python /app/manage.py mark_overdue_cuotas

@@ -1,0 +1,50 @@
+from django.db import models
+from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+
+
+class ConfiguracionEmpresa(models.Model):
+    logo = models.ImageField(
+        'Logo', upload_to='empresa/', blank=True, null=True
+    )
+    nombre = models.CharField('Nombre de la empresa', max_length=200)
+    ruc = models.CharField('RUC', max_length=20)
+    direccion = models.CharField('Dirección', max_length=300, blank=True)
+    telefono = models.CharField('Teléfono', max_length=50, blank=True)
+    ciudad = models.CharField('Ciudad', max_length=100, blank=True)
+    timbrado_activo = models.ForeignKey(
+        'facturacion.Timbrado', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='Timbrado activo',
+        help_text='Timbrado que se usará por defecto en facturas legales',
+    )
+    pie_factura = models.TextField(
+        'Texto pie de factura', blank=True,
+        help_text='Texto opcional que aparece al pie de cada factura/ticket',
+    )
+    certificado_sifen = models.FileField(
+        'Certificado digital SIFEN (.p12/.pfx)', upload_to='certificados/',
+        null=True, blank=True,
+        help_text='Archivo PKCS#12 del certificado digital para SIFEN',
+    )
+    clave_certificado_sifen = models.CharField(
+        'Clave del certificado SIFEN', max_length=255, blank=True,
+        help_text='Contraseña del archivo PKCS#12',
+    )
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Configuración de la empresa'
+        verbose_name_plural = 'Configuración de la empresa'
+
+    def __str__(self):
+        return self.nombre
+
+    def clean(self):
+        if not self.pk and ConfiguracionEmpresa.objects.exists():
+            raise ValidationError('Solo puede existir una configuración de empresa.')
+        super().clean()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

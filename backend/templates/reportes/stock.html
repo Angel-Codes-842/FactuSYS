@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 1.5cm; size: A4 landscape; }
+  body { font-family: 'DejaVu Sans', sans-serif; font-size: 10px; color: #333; }
+  .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; }
+  .header h1 { color: #1a73e8; margin: 0 0 5px; font-size: 20px; }
+  .header p { margin: 2px 0; color: #666; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1a73e8; color: white; padding: 6px 8px; text-align: left; font-size: 9px; }
+  td { padding: 4px 8px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .bajo { color: #dc3545; font-weight: bold; }
+  .vencido { background: #fff3cd; }
+  .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #999; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>{{ empresa }}</h1>
+  <p>Reporte de Stock - {{ hoy|date:"d/m/Y" }}</p>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Producto</th>
+      <th>Categoría</th>
+      <th>Stock Total</th>
+      <th>Lotes Activos</th>
+      <th>Lotes Vencidos</th>
+      <th>Precio Venta</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in productos %}
+    <tr class="{% if p.lotes_vencidos > 0 %}vencido{% endif %}">
+      <td>{{ p.codigo }}</td>
+      <td>{{ p.nombre }}</td>
+      <td>{{ p.categoria }}</td>
+      <td class="{% if p.stock_total <= 5 %}bajo{% endif %}">{{ p.stock_total }}</td>
+      <td>{{ p.lotes_activos }}</td>
+      <td>{{ p.lotes_vencidos }}</td>
+      <td>{{ moneda_simbolo }}{{ p.precio_venta|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  <p>Generado el {{ hoy|date:"d/m/Y" }} - Stock bajo marcado en rojo (≤ 5 unidades)</p>
+</div>
+</body>
+</html>

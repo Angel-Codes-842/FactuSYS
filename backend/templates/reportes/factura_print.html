@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 15mm; size: A4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DejaVu Sans', sans-serif; font-size: 11px; color: #333; }
+  .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 12px; }
+  .header h1 { color: #1a73e8; margin: 0 0 4px; font-size: 20px; }
+  .header h2 { font-size: 16px; margin-top: 8px; }
+  .header p { margin: 1px 0; color: #666; font-size: 10px; }
+  .logo { max-height: 70px; margin-bottom: 8px; }
+  .info-table { width: 100%; margin-bottom: 15px; }
+  .info-table td { vertical-align: top; padding: 2px 4px; }
+  .label { font-weight: bold; width: 100px; color: #555; }
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+  .items-table th { background: #1a73e8; color: white; padding: 6px 8px; text-align: left; font-size: 10px; }
+  .items-table td { padding: 4px 8px; border-bottom: 1px solid #ddd; font-size: 10px; }
+  .items-table tr:nth-child(even) { background: #f8f9fa; }
+  .right { text-align: right; }
+  .totals { width: 100%; max-width: 300px; margin-left: auto; }
+  .totals td { padding: 3px 8px; }
+  .total-row td { font-weight: bold; font-size: 13px; border-top: 2px solid #333; padding-top: 6px; }
+  .footer { margin-top: 30px; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #ddd; padding-top: 8px; }
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+  .status-pagada { background: #d4edda; color: #155724; }
+  .status-pendiente { background: #fff3cd; color: #856404; }
+  .status-anulada { background: #f8d7da; color: #721c24; }
+  .status-vencida { background: #f8d7da; color: #721c24; }
+  .pagos-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .pagos-table th { background: #e9ecef; padding: 4px 6px; text-align: left; font-size: 10px; }
+  .pagos-table td { padding: 3px 6px; border-bottom: 1px solid #eee; font-size: 10px; }
+  .motivo-nota { background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 6px 10px; margin-bottom: 12px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  {% if config.logo %}<img src="{{ config.logo.url }}" class="logo" alt="Logo">{% endif %}
+  <h1>{{ empresa }}</h1>
+  <p>{{ config.ruc|default:"—" }}</p>
+  <p>{{ config.direccion|default:"" }}{% if config.direccion and config.telefono %} — {% endif %}{{ config.telefono|default:"" }}</p>
+  <p>{{ ciudad }}, {{ pais }}</p>
+  {% if factura.timbrado %}
+  <p style="font-size: 11px; margin-top: 4px;"><strong>Timbrado SET:</strong> {{ factura.timbrado.numero }} — Válido: {{ factura.timbrado.fecha_inicio|date:"d/m/Y" }} al {{ factura.timbrado.fecha_fin|date:"d/m/Y" }}</p>
+  {% endif %}
+  {% if factura.tipo_nota %}
+  <h2>{% if factura.tipo_nota == 'credito' %}NOTA DE CRÉDITO{% else %}NOTA DE DÉBITO{% endif %} {{ factura.numero }}</h2>
+  {% else %}
+  <h2>FACTURA {{ factura.numero }}</h2>
+  {% endif %}
+</div>
+
+{% if factura.motivo_nota %}
+<div class="motivo-nota"><strong>Motivo:</strong> {{ factura.motivo_nota }}</div>
+{% endif %}
+
+<table class="info-table">
+  <tr>
+    <td class="label">Cliente:</td>
+    <td>{{ factura.cliente.nombre|default:"Consumidor Final" }}</td>
+    <td class="label">Fecha Emisión:</td>
+    <td>{{ factura.fecha_emision|date:"d/m/Y H:i" }}</td>
+  </tr>
+  <tr>
+    <td class="label">RUC/CI:</td>
+    <td>{{ factura.cliente.ruc_ci|default:"—" }}</td>
+    <td class="label">Tipo:</td>
+    <td>{{ factura.get_tipo_display }}</td>
+  </tr>
+  <tr>
+    <td class="label">Dirección:</td>
+    <td>{{ factura.cliente.direccion|default:"—" }}</td>
+    <td class="label">Estado:</td>
+    <td><span class="status-badge status-{{ factura.estado }}">{{ factura.get_estado_display }}</span></td>
+  </tr>
+  {% if factura.timbrado_numero %}
+  <tr>
+    <td class="label">Timbrado Nº:</td>
+    <td colspan="3">{{ factura.timbrado_numero }}</td>
+  </tr>
+  {% endif %}
+</table>
+
+<table class="items-table">
+  <thead>
+    <tr>
+      <th style="width: 12%;">Código</th>
+      <th style="width: 38%;">Producto</th>
+      <th style="width: 8%;">Cant.</th>
+      <th style="width: 14%;">P. Unit.</th>
+      <th style="width: 10%;">IVA</th>
+      <th style="width: 14%;">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in detalles %}
+    <tr>
+      <td>{{ d.producto.codigo }}</td>
+      <td>{{ d.producto.nombre }}</td>
+      <td>{{ d.cantidad }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ d.precio_unitario|floatformat:0 }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ d.iva_monto|floatformat:0 }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ d.total_linea|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><td>Subtotal:</td><td class="right">{{ moneda_simbolo }}{{ factura.subtotal|floatformat:0 }}</td></tr>
+  <tr><td>IVA {{ iva_pct }}%:</td><td class="right">{{ moneda_simbolo }}{{ factura.iva_10|floatformat:0 }}</td></tr>
+  <tr class="total-row"><td>TOTAL:</td><td class="right">{{ moneda_simbolo }}{{ factura.total|floatformat:0 }}</td></tr>
+</table>
+
+{% if pagos %}
+<h3 style="margin-top: 20px; font-size: 12px;">Pagos</h3>
+<table class="pagos-table">
+  <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th></tr></thead>
+  <tbody>
+    {% for p in pagos %}
+    <tr>
+      <td>{{ p.fecha|date:"d/m/Y H:i" }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ p.monto|floatformat:0 }}</td>
+      <td>{{ p.metodo }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="footer">
+  <p>Generado el {{ hoy|date:"d/m/Y" }} — {{ empresa }}</p>
+  {% if factura.tipo == 'credito' or factura.tipo == 'contado' %}
+  <p>Documento válido como factura — Timbrado SET {{ factura.timbrado.numero }}</p>
+  {% endif %}
+  {% if config.pie_factura %}
+  <p>{{ config.pie_factura }}</p>
+  {% endif %}
+</div>
+
+<script>
+window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; };
+</script>
+</body>
+</html>

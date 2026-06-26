@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 0; size: 80mm auto; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DejaVu Sans Mono', monospace; font-size: 10px; color: #000; line-height: 1.3; padding: 2mm 3mm; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .header { text-align: center; margin-bottom: 6px; }
+  .header h1 { font-size: 13px; margin-bottom: 2px; }
+  .header p { font-size: 9px; margin: 1px 0; }
+  .logo { max-height: 45px; margin-bottom: 3px; }
+  .sep { text-align: center; margin: 4px 0; }
+  .info-table { width: 100%; font-size: 9px; margin-bottom: 4px; }
+  .info-table td { vertical-align: top; padding: 1px 0; }
+  .label { font-weight: bold; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 4px; }
+  .items-table th { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0; text-align: left; font-size: 8px; }
+  .items-table td { padding: 1px 0; }
+  .totals { width: 100%; font-size: 10px; margin-bottom: 4px; }
+  .totals td { padding: 1px 0; }
+  .total-row td { font-weight: bold; font-size: 12px; border-top: 1px dashed #000; padding-top: 3px; }
+  .footer { text-align: center; font-size: 8px; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #000; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  {% if config.logo %}<img src="{{ config.logo.url }}" class="logo" alt="Logo">{% endif %}
+  <h1>{{ empresa }}</h1>
+  <p>{{ config.ruc|default:"—" }}</p>
+  <p>{{ config.direccion|default:"" }}{% if config.direccion and config.telefono %} — {% endif %}{{ config.telefono|default:"" }}</p>
+  <p>{{ ciudad }}, {{ pais }}</p>
+</div>
+
+<div class="sep">═══════════════════════════════</div>
+
+<table class="info-table">
+  <tr><td class="label">Cliente:</td><td>{{ factura.cliente.nombre|default:"Consumidor Final" }}</td></tr>
+  {% if factura.cliente.ruc_ci %}<tr><td class="label">RUC/CI:</td><td>{{ factura.cliente.ruc_ci }}</td></tr>{% endif %}
+  <tr><td class="label">Fecha:</td><td>{{ factura.fecha_emision|date:"d/m/Y H:i" }}</td></tr>
+  <tr><td class="label">Nº:</td><td>{{ factura.numero }}</td></tr>
+</table>
+
+<div class="sep">───────────────────────────────</div>
+
+<table class="items-table">
+  <thead><tr><th>Cant.</th><th>Producto</th><th class="right">Precio</th><th class="right">Total</th></tr></thead>
+  <tbody>
+    {% for d in detalles %}
+    <tr>
+      <td>{{ d.cantidad }}</td>
+      <td>{{ d.producto.nombre }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ d.precio_unitario|floatformat:0 }}</td>
+      <td class="right">{{ moneda_simbolo }}{{ d.total_linea|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="sep">───────────────────────────────</div>
+
+<table class="totals">
+  <tr><td>Subtotal:</td><td class="right">{{ moneda_simbolo }}{{ factura.subtotal|floatformat:0 }}</td></tr>
+  <tr><td>IVA {{ iva_pct }}%:</td><td class="right">{{ moneda_simbolo }}{{ factura.iva_10|floatformat:0 }}</td></tr>
+  <tr class="total-row"><td>TOTAL:</td><td class="right">{{ moneda_simbolo }}{{ factura.total|floatformat:0 }}</td></tr>
+</table>
+
+{% if pagos %}
+<div class="sep">───────────────────────────────</div>
+<table class="totals">
+  {% for p in pagos %}
+  <tr><td>Pago {{ p.metodo }}:</td><td class="right">{{ moneda_simbolo }}{{ p.monto|floatformat:0 }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<div class="sep">═══════════════════════════════</div>
+
+<div class="footer">
+  <p>Documento interno sin validez fiscal</p>
+  <p>{{ hoy|date:"d/m/Y H:i" }}</p>
+  {% if config.pie_factura %}
+  <p>{{ config.pie_factura }}</p>
+  {% endif %}
+</div>
+
+<script>
+window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; };
+</script>
+</body>
+</html>
