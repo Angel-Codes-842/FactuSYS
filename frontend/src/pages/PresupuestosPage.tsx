@@ -133,7 +133,7 @@ export default function PresupuestosPage() {
           </FormControl>
           <Autocomplete
             size="small" sx={{ mt: 1 }}
-            options={vendedores} value={vendedores.find(v => v.id === form.vendedor) || null}
+            options={vendedores ?? []} value={(vendedores ?? []).find(v => v.id === form.vendedor) || null}
             onChange={(_, v) => setForm({...form, vendedor: v?.id || null})}
             getOptionLabel={v => v.nombre}
             renderInput={p => <TextField {...p} label="Vendedor" fullWidth />}

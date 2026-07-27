@@ -66,7 +66,7 @@ export default function CajaPage() {
           <AccountBalanceIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
           Caja Diaria
         </Typography>
-        {!caja ? (
+      {isLoading ? <LoadingState /> : !caja ? (
           <Button variant="contained" startIcon={<LockOpenIcon />} onClick={() => setOpenAbrir(true)}>
             Abrir Caja
           </Button>
