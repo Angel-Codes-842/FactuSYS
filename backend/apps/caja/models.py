@@ -55,9 +55,6 @@ class Caja(models.Model):
             )
         else:
             qs = qs.filter(fecha_emision__gte=self.fecha_apertura)
-        qs = qs.filter(
-            Q(estado='pagada') | Q(estado='pendiente')
-        )
         return qs.aggregate(total=Sum('total'))['total'] or 0
 
     @property

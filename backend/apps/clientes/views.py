@@ -69,13 +69,7 @@ class ClienteViewSet(viewsets.ModelViewSet):
             usuario=request.user,
         )
 
-        if factura:
-            total_pagado = sum(
-                p.monto for p in factura.pagos.all()
-            )
-            if total_pagado >= factura.total:
-                factura.estado = 'pagada'
-                factura.save()
+        # estado se determina dinámicamente por pagos/cuotas
 
         return Response(CuentaMovimientoSerializer(mov).data, status=201)
 

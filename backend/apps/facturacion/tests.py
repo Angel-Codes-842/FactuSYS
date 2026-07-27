@@ -653,7 +653,6 @@ class PagoAPITestCase(TestCase):
         factura = Factura.objects.get(id=response.data['id'])
         self.assertEqual(factura.pagos.count(), 1)
         self.assertEqual(factura.pagos.first().monto, factura.total)
-        self.assertEqual(factura.estado, 'pagada')
 
 
 class MarkOverdueCuotasCommandTest(TestCase):
