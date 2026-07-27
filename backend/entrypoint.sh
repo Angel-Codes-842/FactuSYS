@@ -11,10 +11,12 @@ if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
 
+PORT=${PORT:-8000}
+
 if [ "$DEBUG" = "1" ]; then
     echo "=== Development mode: runserver ==="
-    exec python manage.py runserver 0.0.0.0:8000
+    exec python manage.py runserver 0.0.0.0:$PORT
 else
-    echo "=== Production mode: gunicorn ==="
-    exec gunicorn config.wsgi:application --workers=4 --threads=2 --bind=0.0.0.0:8000
+    echo "=== Production mode: gunicorn on port $PORT ==="
+    exec gunicorn config.wsgi:application --workers=4 --threads=2 --bind=0.0.0.0:$PORT
 fi
