@@ -3,6 +3,30 @@ from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 
 
+RUBRO_CHOICES = [
+    ('general', 'General / Otro'),
+    ('autoservicio', 'Autoservicio / Minimarket'),
+    ('fruteria', 'Frutería / Verdulería'),
+    ('ferreteria', 'Ferretería'),
+    ('libreria', 'Librería / Papelería'),
+    ('farmacia', 'Farmacia'),
+    ('restaurante', 'Restaurante / Bar'),
+    ('ropa', 'Indumentaria / Ropa'),
+    ('electronica', 'Electrónica / Tecnología'),
+    ('servicio', 'Prestación de Servicios'),
+]
+
+FORMATO_IMPRESION_CHOICES = [
+    ('a4', 'A4 (hoja completa)'),
+    ('ticket80', 'Ticket 80mm (impresora térmica)'),
+]
+
+SIFEN_AMBIENTE_CHOICES = [
+    ('homologacion', 'Homologación (pruebas)'),
+    ('produccion', 'Producción (real)'),
+]
+
+
 class ConfiguracionEmpresa(models.Model):
     logo = models.ImageField(
         'Logo', upload_to='empresa/', blank=True, null=True
@@ -12,6 +36,10 @@ class ConfiguracionEmpresa(models.Model):
     direccion = models.CharField('Dirección', max_length=300, blank=True)
     telefono = models.CharField('Teléfono', max_length=50, blank=True)
     ciudad = models.CharField('Ciudad', max_length=100, blank=True)
+    rubro = models.CharField(
+        'Rubro / Giro comercial', max_length=30,
+        choices=RUBRO_CHOICES, default='general',
+    )
     timbrado_activo = models.ForeignKey(
         'facturacion.Timbrado', on_delete=models.SET_NULL,
         null=True, blank=True, verbose_name='Timbrado activo',
@@ -20,6 +48,19 @@ class ConfiguracionEmpresa(models.Model):
     pie_factura = models.TextField(
         'Texto pie de factura', blank=True,
         help_text='Texto opcional que aparece al pie de cada factura/ticket',
+    )
+    formato_impresion = models.CharField(
+        'Formato de impresión', max_length=10,
+        choices=FORMATO_IMPRESION_CHOICES, default='a4',
+    )
+    # ── SIFEN ────────────────────────────────────────────────────────────────
+    sifen_habilitado = models.BooleanField(
+        'SIFEN habilitado', default=False,
+        help_text='Activar para emitir Documentos Electrónicos (DE) al SET',
+    )
+    sifen_ambiente = models.CharField(
+        'Ambiente SIFEN', max_length=15,
+        choices=SIFEN_AMBIENTE_CHOICES, default='homologacion',
     )
     certificado_sifen = models.FileField(
         'Certificado digital SIFEN (.p12/.pfx)', upload_to='certificados/',

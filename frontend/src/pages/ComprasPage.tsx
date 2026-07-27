@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Dialog, DialogTitle, DialogContent,
@@ -8,14 +8,15 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import DownloadIcon from '@mui/icons-material/Download'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useCompras, useProveedores, useProductos, useCrearCompra, useRecibirCompra } from '../hooks/useApi'
 
 export default function ComprasPage() {
-  const [compras, setCompras] = useState<any[]>([])
-  const [proveedores, setProveedores] = useState<any[]>([])
-  const [productos, setProductos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: compras, isLoading } = useCompras()
+  const { data: proveedores } = useProveedores()
+  const { data: productos } = useProductos()
+  const crearCompra = useCrearCompra()
+  const recibirCompra = useRecibirCompra()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<any>({
     proveedor: '', detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }],
@@ -23,27 +24,11 @@ export default function ComprasPage() {
   const [snack, setSnack] = useState('')
   const [confirmRecibir, setConfirmRecibir] = useState<any>(null)
 
-  const loadData = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/compras/compras/'),
-      api.get('/clientes/proveedores/'),
-      api.get('/productos/productos/'),
-    ]).then(([c, prov, prod]) => {
-      setCompras(c.data.results || c.data)
-      setProveedores(prov.data.results || prov.data)
-      setProductos(prod.data.results || prod.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-
-  useEffect(loadData, [])
-
   const handleCreate = async () => {
     try {
-      await api.post('/compras/compras/', form)
+      await crearCompra.mutateAsync(form)
       setOpen(false)
       setForm({ proveedor: '', tipo: 'factura_legal', factura_numero: '', detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }] })
-      loadData()
       setSnack('Compra creada exitosamente')
     } catch (err: any) {
       setSnack(err.response?.data?.detail || 'Error al crear compra')
@@ -51,13 +36,12 @@ export default function ComprasPage() {
   }
 
   const handleRecibir = async (id: number) => {
-    await api.post(`/compras/compras/${id}/recibir/`)
+    await recibirCompra.mutateAsync({ id, data: {} })
     setConfirmRecibir(null)
-    loadData()
     setSnack('Compra recibida, lotes creados')
   }
 
-  if (loading) return <LoadingState height={400} />
+  if (isLoading) return <LoadingState height={400} />
 
   return (
     <Box>

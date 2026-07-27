@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, TextField,
@@ -8,46 +8,36 @@ import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import WarehouseIcon from '@mui/icons-material/Warehouse'
 import SearchIcon from '@mui/icons-material/Search'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useProductos, useActualizarProducto } from '../hooks/useApi'
 
 export default function StockPage() {
-  const [productos, setProductos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: productos, isLoading } = useProductos()
+  const actualizarProducto = useActualizarProducto()
   const [search, setSearch] = useState('')
   const [snack, setSnack] = useState('')
 
   const filtrados = useMemo(() =>
-    productos.filter(p =>
+    (productos || []).filter(p =>
       !search ||
       p.nombre.toLowerCase().includes(search.toLowerCase()) ||
       p.codigo.toLowerCase().includes(search.toLowerCase())
     ), [productos, search]
   )
 
-  const loadData = () => {
-    setLoading(true)
-    api.get('/productos/productos/')
-      .then(r => setProductos(r.data.results || r.data))
-      .catch(() => {}).finally(() => setLoading(false))
-  }
-
-  useEffect(() => { loadData() }, [])
-
   const ajustarStock = async (id: number, delta: number) => {
-    const p = productos.find(x => x.id === id)
+    const p = (productos || []).find((x: any) => x.id === id)
     if (!p) return
     const nuevoStock = Math.max(0, (p.cantidad_stock ?? 0) + delta)
     try {
-      await api.patch(`/productos/productos/${id}/`, { cantidad_stock: nuevoStock })
-      setProductos(prev => prev.map(x => x.id === id ? { ...x, cantidad_stock: nuevoStock } : x))
+      await actualizarProducto.mutateAsync({ id, data: { cantidad_stock: nuevoStock } })
       setSnack(delta > 0 ? 'Stock ingresado' : 'Stock retirado')
     } catch {
       setSnack('Error al ajustar stock')
     }
   }
 
-  if (loading) return <LoadingState height={400} />
+  if (isLoading) return <LoadingState height={400} />
 
   return (
     <Box>

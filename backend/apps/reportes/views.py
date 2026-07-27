@@ -1,5 +1,5 @@
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from django.http import FileResponse, HttpResponse
 from django.template.loader import get_template
 from django.db.models import Sum, Count, F
@@ -95,7 +95,12 @@ def factura_print(request, factura_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def stock_report(request):
-    productos = Producto.objects.filter(activo=True)
+    from django.db.models import Count, Q
+    productos = Producto.objects.filter(activo=True).select_related(
+        'categoria'
+    ).annotate(
+        lotes_vencidos=Count('lotes', filter=Q(lotes__activo=True, lotes__fecha_vencimiento__lt=date.today())),
+    ).only('codigo', 'nombre', 'categoria__nombre', 'cantidad_stock', 'precio_venta')
     data = []
     for p in productos:
         data.append({
@@ -104,7 +109,7 @@ def stock_report(request):
             'categoria': p.categoria.nombre if p.categoria else '—',
             'stock_total': p.cantidad_stock,
             'precio_venta': float(p.precio_venta),
-            'lotes_vencidos': p.lotes.filter(activo=True, fecha_vencimiento__lt=date.today()).count(),
+            'lotes_vencidos': p.lotes_vencidos,
         })
 
     context = {
@@ -125,8 +130,6 @@ def stock_report(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard(request):
-    hoy = date.today()
-
     hoy = date.today()
     mes_inicio = hoy.replace(day=1)
 
@@ -223,3 +226,32 @@ def ventas_por_periodo(request):
         'desde': desde or '—',
         'hasta': hasta or '—',
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ventas_ultimos_7_dias(request):
+    from django.db.models.functions import TruncDate
+    hoy = date.today()
+    siete_dias_atras = hoy - timedelta(days=6)
+
+    ventas_por_dia = (
+        Factura.objects
+        .filter(anulada=False, fecha_emision__date__gte=siete_dias_atras)
+        .annotate(dia=TruncDate('fecha_emision'))
+        .values('dia')
+        .annotate(total=Sum('total'))
+        .order_by('dia')
+    )
+
+    ventas_map = {v['dia']: float(v['total'] or 0) for v in ventas_por_dia}
+
+    dias = []
+    for i in range(6, -1, -1):
+        dia = hoy - timedelta(days=i)
+        dias.append({
+            'fecha': dia.strftime('%d/%m'),
+            'fecha_completa': dia.isoformat(),
+            'total': ventas_map.get(dia, 0),
+        })
+    return Response(dias)

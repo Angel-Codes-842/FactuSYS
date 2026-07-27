@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -7,22 +7,18 @@ import {
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useProveedores, useCrearProveedor, useActualizarProveedor, useEliminarProveedor } from '../hooks/useApi'
 
 export default function ProveedoresPage() {
-  const [proveedores, setProveedores] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: proveedores, isLoading } = useProveedores()
+  const crearProveedor = useCrearProveedor()
+  const actualizarProveedor = useActualizarProveedor()
+  const eliminarProveedor = useEliminarProveedor()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState<any>({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '' })
   const [snack, setSnack] = useState('')
-
-  const load = () => {
-    setLoading(true)
-    api.get('/clientes/proveedores/').then(r => setProveedores(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -31,15 +27,13 @@ export default function ProveedoresPage() {
   }
 
   const handleSave = async () => {
-    const url = '/clientes/proveedores/'
     try {
       if (editItem) {
-        await api.patch(`${url}${editItem.id}/`, form)
+        await actualizarProveedor.mutateAsync({ id: editItem.id, data: form })
       } else {
-        await api.post(url, form)
+        await crearProveedor.mutateAsync(form)
       }
       setOpen(false)
-      load()
       setSnack(editItem ? 'Proveedor actualizado exitosamente' : 'Proveedor creado exitosamente')
     } catch (err: any) {
       const errData = err.response?.data
@@ -61,7 +55,7 @@ export default function ProveedoresPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : proveedores.length === 0 ? (
+      {isLoading ? <LoadingState /> : proveedores.length === 0 ? (
         <EmptyState message="No hay proveedores registrados" action={{ label: 'Crear proveedor', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

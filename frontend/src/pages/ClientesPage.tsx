@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,22 +8,17 @@ import {
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import PeopleIcon from '@mui/icons-material/People'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useClientes, useCrearCliente, useActualizarCliente } from '../hooks/useApi'
 
 export default function ClientesPage() {
-  const [clientes, setClientes] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: clientes, isLoading } = useClientes()
+  const crearCliente = useCrearCliente()
+  const actualizarCliente = useActualizarCliente()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState<any>({ nombre: '', ruc_ci: '', tipo: 'fisica', direccion: '', telefono: '', email: '', limite_credito: '', dias_credito: 0 })
   const [snack, setSnack] = useState('')
-
-  const load = () => {
-    setLoading(true)
-    api.get('/clientes/clientes/').then(r => setClientes(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -32,14 +27,12 @@ export default function ClientesPage() {
   }
 
   const handleSave = async () => {
-    const url = '/clientes/clientes/'
     if (editItem) {
-      await api.patch(`${url}${editItem.id}/`, form)
+      await actualizarCliente.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post(url, form)
+      await crearCliente.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Cliente actualizado' : 'Cliente creado')
   }
 
@@ -55,7 +48,7 @@ export default function ClientesPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : clientes.length === 0 ? (
+      {isLoading ? <LoadingState /> : clientes.length === 0 ? (
         <EmptyState message="No hay clientes registrados" action={{ label: 'Crear cliente', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

@@ -7,4 +7,5 @@ urlpatterns = [
     path('factura/<int:factura_id>/print/', views.factura_print, name='factura-print'),
     path('stock/', views.stock_report, name='stock-report'),
     path('ventas/', views.ventas_por_periodo, name='ventas-periodo'),
+    path('ventas-7-dias/', views.ventas_ultimos_7_dias, name='ventas-7-dias'),
 ]

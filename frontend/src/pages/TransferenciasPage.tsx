@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,48 +8,33 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
-import api from '../services/api'
-import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useTransferencias, useSucursales, useProductos, useCrearTransferencia, useAprobarTransferencia } from '../hooks/useApi'
 
 const estadoColor: Record<string, any> = { pendiente: 'warning', aprobada: 'success', cancelada: 'error' }
 
 export default function TransferenciasPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [sucursales, setSucursales] = useState<any[]>([])
-  const [productos, setProductos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useTransferencias()
+  const { data: sucursales } = useSucursales()
+  const { data: productos } = useProductos()
+  const crearTransferencia = useCrearTransferencia()
+  const aprobarTransferencia = useAprobarTransferencia()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<any>({ producto: null, cantidad: 1, origen: '', destino: '', motivo: '' })
   const [snack, setSnack] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/sucursales/transferencias/'),
-      api.get('/sucursales/sucursales/'),
-      api.get('/productos/productos/'),
-    ]).then(([r1, r2, r3]) => {
-      setItems(r1.data.results || r1.data)
-      setSucursales(r2.data.results || r2.data)
-      setProductos(r3.data.results || r3.data)
-    }).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
-
   const handleCreate = async () => {
-    await api.post('/sucursales/transferencias/', {
+    await crearTransferencia.mutateAsync({
       producto: form.producto?.id, cantidad: form.cantidad,
       origen: form.origen, destino: form.destino, motivo: form.motivo,
     })
     setOpen(false)
     setForm({ producto: null, cantidad: 1, origen: '', destino: '', motivo: '' })
-    load()
     setSnack('Transferencia creada')
   }
 
   const handleAprobar = async (id: number) => {
-    await api.post(`/sucursales/transferencias/${id}/aprobar/`)
-    load()
+    await aprobarTransferencia.mutateAsync(id)
     setSnack('Transferencia aprobada')
   }
 
@@ -62,7 +47,7 @@ export default function TransferenciasPage() {
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>Nueva Transferencia</Button>
       </Box>
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay transferencias" action={{ label: 'Nueva transferencia', onClick: () => setOpen(true) }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

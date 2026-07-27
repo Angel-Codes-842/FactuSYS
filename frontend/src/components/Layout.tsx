@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   AppBar, Toolbar, Typography, Drawer, List, ListItemButton,
   ListItemIcon, ListItemText, Box, Button, Collapse, Avatar,
-  IconButton,
+  IconButton, Badge, Chip, Tooltip,
 } from '@mui/material'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import PeopleIcon from '@mui/icons-material/People'
@@ -11,6 +11,7 @@ import InventoryIcon from '@mui/icons-material/Inventory'
 import WarehouseIcon from '@mui/icons-material/Warehouse'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
 import ReceiptIcon from '@mui/icons-material/Receipt'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import HistoryIcon from '@mui/icons-material/History'
 import CategoryIcon from '@mui/icons-material/Category'
@@ -31,93 +32,101 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import MenuIcon from '@mui/icons-material/Menu'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import LightModeIcon from '@mui/icons-material/LightMode'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import MapIcon from '@mui/icons-material/Map'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import { useAuth } from '../contexts/AuthContext'
+import { useColorMode } from '../main'
+import api from '../services/api'
 
 const drawerWidth = 240
 
-type MenuGroup = {
-  label: string
-  children: { text: string; icon: React.ReactNode; path: string }[]
-}
+type MenuItem = { text: string; icon: React.ReactNode; path: string; adminOnly?: boolean }
+type MenuGroup = { label: string; children: MenuItem[]; defaultOpen?: boolean }
 
 const groups: MenuGroup[] = [
   {
-    label: 'General',
+    label: 'Operaciones',
+    defaultOpen: true,
     children: [
       { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    ],
-  },
-  {
-    label: 'Ventas',
-    children: [
-      { text: 'Presupuestos', icon: <RequestQuoteIcon />, path: '/presupuestos' },
-      { text: 'Ventas', icon: <PointOfSaleIcon />, path: '/ventas' },
+      { text: 'Nueva Venta', icon: <PointOfSaleIcon />, path: '/ventas' },
       { text: 'Facturas', icon: <ReceiptIcon />, path: '/facturas' },
       { text: 'Caja Diaria', icon: <AccountBalanceIcon />, path: '/caja' },
-      { text: 'Historial Caja', icon: <HistoryIcon />, path: '/caja/historial' },
-      { text: 'Promociones', icon: <LocalOfferIcon />, path: '/promociones' },
-      { text: 'Reglas Descuento', icon: <AutoAwesomeIcon />, path: '/reglas-descuento' },
+      { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes' },
     ],
   },
   {
     label: 'Inventario',
+    defaultOpen: false,
     children: [
       { text: 'Productos', icon: <InventoryIcon />, path: '/productos' },
       { text: 'Compras', icon: <LocalShippingIcon />, path: '/compras' },
+      { text: 'Autofacturas', icon: <ReceiptLongIcon />, path: '/autofacturas' },
       { text: 'Stock', icon: <WarehouseIcon />, path: '/stock' },
-      { text: 'Categorías', icon: <CategoryIcon />, path: '/categoria' },
-      { text: 'Marcas', icon: <BookmarkIcon />, path: '/productos/marcas' },
     ],
   },
   {
-    label: 'Logística',
+    label: 'Más',
+    defaultOpen: false,
     children: [
-      { text: 'Notas de Remisión', icon: <LocalShippingIcon />, path: '/logistica/notas-remision' },
-      { text: 'Transportistas', icon: <LocalShippingIcon />, path: '/logistica/transportistas' },
-      { text: 'Zonas', icon: <LocalShippingIcon />, path: '/logistica/zonas' },
+      { text: 'Presupuestos', icon: <RequestQuoteIcon />, path: '/presupuestos' },
+      { text: 'Ctas. Corrientes', icon: <AccountBalanceWalletIcon />, path: '/cuentas-corrientes' },
+      { text: 'Proveedores', icon: <LocalShippingIcon />, path: '/proveedores' },
+      { text: 'Promociones', icon: <LocalOfferIcon />, path: '/promociones' },
+      { text: 'Reglas Descuento', icon: <AutoAwesomeIcon />, path: '/reglas-descuento' },
+      { text: 'Logística', icon: <LocalShippingIcon />, path: '/logistica/notas-remision' },
       { text: 'Sucursales', icon: <StoreIcon />, path: '/sucursales' },
       { text: 'Transferencias', icon: <SwapHorizIcon />, path: '/transferencias' },
-    ],
-  },
-  {
-    label: 'Clientes',
-    children: [
-      { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes' },
-      { text: 'Proveedores', icon: <LocalShippingIcon />, path: '/proveedores' },
-      { text: 'Ctas. Corrientes', icon: <AccountBalanceWalletIcon />, path: '/cuentas-corrientes' },
-    ],
-  },
-  {
-    label: 'RRHH',
-    children: [
       { text: 'Vendedores', icon: <BadgeIcon />, path: '/vendedores' },
-      { text: 'Puestos', icon: <WorkIcon />, path: '/puestos' },
+      { text: 'Historial Caja', icon: <HistoryIcon />, path: '/caja/historial' },
     ],
   },
   {
     label: 'Administración',
+    defaultOpen: false,
     children: [
-      { text: 'Usuarios', icon: <AdminPanelSettingsIcon />, path: '/usuarios' },
-      { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion' },
+      { text: 'Auditoría', icon: <HistoryIcon />, path: '/auditoria', adminOnly: true },
+      { text: 'Usuarios', icon: <AdminPanelSettingsIcon />, path: '/usuarios', adminOnly: true },
+      { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion', adminOnly: true },
     ],
   },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { mode, toggleColorMode } = useColorMode()
   const navigate = useNavigate()
   const location = useLocation()
+  
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [config, setConfig] = useState<any>(null)
+  const [alertsCount, setAlertsCount] = useState(0)
+
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     groups.forEach(g => {
-      initial[g.label] = g.children.some(c => {
+      // Abrir si tiene defaultOpen=true, o si la ruta actual está en el grupo
+      const hasActive = g.children.some(c => {
         if (c.path === '/') return location.pathname === '/'
         return location.pathname.startsWith(c.path)
       })
+      initial[g.label] = g.defaultOpen || hasActive
     })
     return initial
   })
+
+  useEffect(() => {
+    api.get('/empresa/configuracion/actual/').then(r => setConfig(r.data)).catch(() => {})
+    api.get('/reportes/dashboard/').then(r => {
+      let count = 0
+      if (r.data.productos_stock_bajo > 0) count++
+      // Podríamos agregar más validaciones aquí (caja sin abrir, timbrado por vencer)
+      setAlertsCount(count)
+    }).catch(() => {})
+  }, [location.pathname]) // Recargar al navegar
 
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
@@ -139,52 +148,103 @@ export default function Layout() {
     setMobileOpen(false)
   }
 
+  const renderSifenStatus = () => {
+    if (!config) return null
+    if (!config.sifen_habilitado) return <Chip label="SIFEN OFF" size="small" sx={{ ml: 2, mb: 2, fontSize: '0.65rem', fontWeight: 'bold' }} />
+    const isTest = config.sifen_ambiente === 'homologacion'
+    return (
+      <Chip 
+        label={isTest ? 'SIFEN TEST' : 'SIFEN PROD'} 
+        size="small" 
+        color={isTest ? 'warning' : 'success'}
+        sx={{ ml: 2, mb: 2, fontSize: '0.65rem', fontWeight: 'bold' }} 
+      />
+    )
+  }
+
+  const isAdmin = user?.tipo === 'admin'
+
   const drawerContent = (
-    <List sx={{ pt: 1.5, pb: 2 }}>
-      {groups.map(group => {
-        const groupOpen = openGroups[group.label]
-        return (
-          <Box key={group.label}>
-            <ListItemButton
-              onClick={() => toggleGroup(group.label)}
-              sx={{ mx: 1.5, my: 0.2, borderRadius: 1 }}
-            >
-              <ListItemText
-                primary={group.label}
-                primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}
-              />
-              {groupOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-            </ListItemButton>
-            <Collapse in={groupOpen} timeout="auto" unmountOnExit>
-              {group.children.map(item => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Botón principal siempre visible */}
+      <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
+        <Button
+          variant="contained"
+          fullWidth
+          startIcon={<PointOfSaleIcon />}
+          onClick={() => handleNavigate('/ventas')}
+          sx={{ 
+            borderRadius: 2, 
+            py: 1.2, 
+            fontWeight: 800, 
+            fontSize: '0.95rem', 
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            textTransform: 'none',
+            letterSpacing: 0.5
+          }}
+        >
+          Nueva Venta
+        </Button>
+      </Box>
+
+      <List sx={{ pt: 0, pb: 2, flexGrow: 1 }}>
+        {groups
+          .filter(g => {
+            // Ocultar grupo Admin completo si es vendedor
+            if (g.label === 'Administración' && !isAdmin) return false
+            return true
+          })
+          .map(group => {
+            // Filtrar ítems adminOnly para vendedor
+            const visibleItems = group.children.filter(item => !item.adminOnly || isAdmin)
+            if (visibleItems.length === 0) return null
+            const groupOpen = openGroups[group.label]
+            return (
+              <Box key={group.label}>
                 <ListItemButton
-                  key={item.path}
-                  selected={isActive(item.path)}
-                  onClick={() => handleNavigate(item.path)}
-                  sx={{ mx: 1.5, my: 0.2, py: 0.6, borderRadius: 1 }}
+                  onClick={() => toggleGroup(group.label)}
+                  sx={{ mx: 1.5, my: 0.2, borderRadius: 1 }}
                 >
-                  <ListItemIcon sx={{ minWidth: 36, color: isActive(item.path) ? 'primary.main' : undefined }}>
-                    {item.icon}
-                  </ListItemIcon>
                   <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{
-                      fontSize: '0.85rem',
-                      fontWeight: isActive(item.path) ? 600 : 400,
-                    }}
+                    primary={group.label}
+                    primaryTypographyProps={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}
                   />
+                  {groupOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
                 </ListItemButton>
-              ))}
-            </Collapse>
-          </Box>
-        )
-      })}
-    </List>
+                <Collapse in={groupOpen} timeout="auto" unmountOnExit>
+                  {visibleItems.map(item => (
+                    <ListItemButton
+                      key={item.path}
+                      selected={isActive(item.path)}
+                      onClick={() => handleNavigate(item.path)}
+                      sx={{ mx: 1.5, my: 0.2, py: 0.6, borderRadius: 1 }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, color: isActive(item.path) ? 'primary.main' : undefined }}>
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontSize: '0.85rem',
+                          fontWeight: isActive(item.path) ? 600 : 400,
+                        }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </Collapse>
+              </Box>
+            )
+          })}
+      </List>
+      {renderSifenStatus()}
+    </Box>
   )
+
+  const brandName = config?.nombre || 'FactuSYS'
 
   return (
     <Box display="flex">
-      <AppBar position="fixed" elevation={0} sx={{ zIndex: 1201, borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+      <AppBar position="fixed" elevation={0} sx={{ zIndex: 1201 }}>
         <Toolbar>
           <IconButton
             color="inherit"
@@ -195,17 +255,40 @@ export default function Layout() {
           >
             <MenuIcon />
           </IconButton>
-          <StorefrontIcon sx={{ mr: 1.5, fontSize: 28, flexShrink: 0 }} />
+          
+          {config?.logo_url ? (
+            <Box component="img" src={config.logo_url} alt="Logo" sx={{ height: 32, mr: 1.5, borderRadius: 1 }} />
+          ) : (
+            <StorefrontIcon sx={{ mr: 1.5, fontSize: 28, flexShrink: 0 }} />
+          )}
+          
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700, letterSpacing: 0.5, display: { xs: 'none', sm: 'block' } }}>
-            FactuSYS
+            {brandName}
           </Typography>
+          
           <Box sx={{ flexGrow: 1, display: { xs: 'block', sm: 'none' } }} />
+
+          <Tooltip title="Cambiar tema">
+            <IconButton color="inherit" onClick={toggleColorMode} sx={{ mr: 1 }}>
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Notificaciones">
+            <IconButton color="inherit" sx={{ mr: 2 }} onClick={() => navigate('/')}>
+              <Badge badgeContent={alertsCount} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
           <Avatar sx={{ width: 32, height: 32, bgcolor: 'rgba(255,255,255,0.2)', fontSize: '0.85rem', mr: 1, flexShrink: 0 }}>
             {(user?.first_name || user?.username || 'U')[0].toUpperCase()}
           </Avatar>
           <Typography variant="body2" sx={{ mr: 2, opacity: 0.9, display: { xs: 'none', sm: 'block' } }}>
             {user?.first_name || user?.username}
           </Typography>
+          
           <Button
             color="inherit"
             onClick={logout}
@@ -228,9 +311,7 @@ export default function Layout() {
         variant="temporary"
         open={mobileOpen}
         onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true,
-        }}
+        ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
@@ -238,9 +319,13 @@ export default function Layout() {
         }}
       >
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
-          <StorefrontIcon sx={{ mr: 1.5, color: 'primary.main', fontSize: 28 }} />
+          {config?.logo_url ? (
+            <Box component="img" src={config.logo_url} alt="Logo" sx={{ height: 28, mr: 1.5, borderRadius: 1 }} />
+          ) : (
+            <StorefrontIcon sx={{ mr: 1.5, color: 'primary.main', fontSize: 28 }} />
+          )}
           <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', letterSpacing: 0.5 }}>
-            FactuSYS
+            {brandName}
           </Typography>
         </Box>
         {drawerContent}
@@ -273,3 +358,4 @@ export default function Layout() {
     </Box>
   )
 }
+

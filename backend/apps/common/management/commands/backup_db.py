@@ -63,6 +63,15 @@ class Command(BaseCommand):
 
             filepath.unlink()
 
+            # Copiar a directorio de sincronización en la nube (ej. Google Drive) si existe
+            sync_dir = Path('/app/sync')
+            if sync_dir.exists() and sync_dir.is_dir():
+                try:
+                    shutil.copy2(gz_path, sync_dir / gz_path.name)
+                    self.stdout.write(self.style.SUCCESS(f'Backup copiado a nube: {sync_dir}'))
+                except Exception as e:
+                    self.stderr.write(self.style.ERROR(f'Error copiando a sync_dir: {e}'))
+
             size_mb = gz_path.stat().st_size / 1_048_576
             self.stdout.write(self.style.SUCCESS(
                 f'Backup creado: {gz_path.name} ({size_mb:.1f} MB)'

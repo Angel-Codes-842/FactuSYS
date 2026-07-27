@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Card, CardContent, Grid2, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Select, MenuItem, FormControl,
@@ -12,13 +12,16 @@ import AddCircleIcon from '@mui/icons-material/AddCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
 import MoneyOffIcon from '@mui/icons-material/MoneyOff'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useCajaActual, useGastos, useAbrirCaja, useCerrarCaja, useCrearGasto, useEliminarGasto } from '../hooks/useApi'
 
 export default function CajaPage() {
-  const [caja, setCaja] = useState<any>(null)
-  const [gastos, setGastos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: caja, isLoading } = useCajaActual()
+  const { data: gastos } = useGastos(caja?.id)
+  const abrirCaja = useAbrirCaja()
+  const cerrarCaja = useCerrarCaja()
+  const crearGasto = useCrearGasto()
+  const eliminarGasto = useEliminarGasto()
   const [openAbrir, setOpenAbrir] = useState(false)
   const [openCerrar, setOpenCerrar] = useState(false)
   const [openGasto, setOpenGasto] = useState(false)
@@ -28,49 +31,33 @@ export default function CajaPage() {
   const [snack, setSnack] = useState('')
   const [confirmDeleteGasto, setConfirmDeleteGasto] = useState<any>(null)
 
-  const loadCaja = () => {
-    setLoading(true)
-    api.get('/caja/cajas/actual/').then(r => {
-      setCaja(r.data)
-      if (r.data?.id) {
-        api.get(`/caja/gastos/?caja=${r.data.id}`).then(r2 => setGastos(r2.data.results || r2.data)).catch(() => {})
-      }
-    }).catch(() => setCaja(null)).finally(() => setLoading(false))
-  }
-
-  useEffect(() => { loadCaja() }, [])
-
   const handleAbrir = async () => {
-    await api.post('/caja/cajas/abrir/', { monto_inicial: montoInicial })
+    await abrirCaja.mutateAsync({ monto_inicial: montoInicial })
     setOpenAbrir(false)
     setMontoInicial(0)
-    loadCaja()
     setSnack('Caja abierta exitosamente')
   }
 
   const handleCerrar = async () => {
-    await api.post(`/caja/cajas/${caja.id}/cerrar/`, { monto_final_real: montoReal })
+    await cerrarCaja.mutateAsync({ id: caja.id, data: { monto_final_real: montoReal } })
     setOpenCerrar(false)
-    loadCaja()
     setSnack('Caja cerrada exitosamente')
   }
 
   const handleGasto = async () => {
-    await api.post('/caja/gastos/', { ...gastoForm, caja: caja.id })
+    await crearGasto.mutateAsync({ ...gastoForm, caja: caja.id })
     setOpenGasto(false)
     setGastoForm({ descripcion: '', monto: 0, categoria: 'otros' })
-    loadCaja()
     setSnack('Gasto registrado')
   }
 
   const handleDeleteGasto = async (id: number) => {
-    await api.delete(`/caja/gastos/${id}/`)
+    await eliminarGasto.mutateAsync(id)
     setConfirmDeleteGasto(null)
-    loadCaja()
     setSnack('Gasto eliminado')
   }
 
-  if (loading) return <LoadingState height={400} />
+  if (isLoading) return <LoadingState height={400} />
 
   return (
     <Box>

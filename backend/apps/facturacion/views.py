@@ -2,26 +2,48 @@ from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from django.db.models import F, Sum
+from django.db.models import F
 from django.utils import timezone
+import json
 from decimal import Decimal
-from .models import Factura, DetalleFactura, Pago, Timbrado, Cuota
-from apps.clientes.models import Cliente, CuentaMovimiento
-from apps.empresa.models import ConfiguracionEmpresa
+from .models import Factura, DetalleFactura, Pago, Timbrado, Cuota, Autofactura, DetalleAutofactura, TimbradoAutofactura
+from apps.stock.models import MovimientoStock
+from apps.clientes.models import CuentaMovimiento
+from apps.common.models import AuditLog
 from .serializers import (
     FacturaListSerializer, FacturaDetailSerializer,
     FacturaCreateSerializer, PagoSerializer, TimbradoSerializer,
     NotaCreditoDebitoSerializer, CuotaSerializer,
+    AutofacturaListSerializer, AutofacturaDetailSerializer, AutofacturaCreateSerializer, TimbradoAutofacturaSerializer
 )
 from apps.permisos import AdminOVendedor, SoloAdmin
 
 
 class FacturaViewSet(viewsets.ModelViewSet):
-    queryset = Factura.objects.select_related('cliente', 'usuario').prefetch_related('pagos')
+    queryset = Factura.objects.select_related('cliente', 'usuario', 'vendedor').prefetch_related('pagos')
     permission_classes = [AdminOVendedor]
     search_fields = ['numero', 'cliente__nombre', 'cliente__ruc_ci']
     ordering_fields = ['fecha_emision', 'total', 'numero']
     filterset_fields = ['tipo', 'cliente']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == 'retrieve':
+            qs = qs.select_related('factura_origen').prefetch_related(
+                'detalles__producto', 'cuotas', 'notas_relacionadas',
+            )
+        elif self.action == 'list':
+            qs = qs.select_related('factura_origen').prefetch_related(
+                'pagos', 'cuotas'
+            ).only(
+                'id', 'numero', 'tipo', 'tipo_nota', 'cliente', 'cliente__nombre',
+                'fecha_emision', 'fecha_vencimiento', 'subtotal', 'iva_10', 'total',
+                'usuario', 'usuario__username', 'vendedor', 'vendedor__nombre',
+                'anulada', 'factura_origen', 'modalidad_cuotas',
+                'fecha_vencimiento', 'plazo_dias', 'cantidad_cuotas',
+                'descuento_porcentaje', 'descuento_monto',
+            )
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -40,132 +62,9 @@ class FacturaViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         factura = serializer.instance
 
-        from apps.descuentos.models import ReglaDescuento
-        reglas = ReglaDescuento.objects.filter(activo=True)
-        mejor_descuento = Decimal('0')
-        for regla in reglas:
-            if regla.tipo == 'monto_minimo' and factura.total >= regla.valor_condicion:
-                mejor_descuento = max(mejor_descuento, regla.descuento_porcentaje)
-            elif regla.tipo == 'volumen':
-                for d in factura.detalles.all():
-                    if d.cantidad >= regla.valor_condicion:
-                        mejor_descuento = max(mejor_descuento, regla.descuento_porcentaje)
-            elif regla.tipo == 'categoria':
-                for d in factura.detalles.all():
-                    if d.producto.categoria_id == int(regla.valor_condicion):
-                        mejor_descuento = max(mejor_descuento, regla.descuento_porcentaje)
-        if mejor_descuento > factura.descuento_porcentaje:
-            factura.descuento_porcentaje = mejor_descuento
-            factura.save(update_fields=['descuento_porcentaje'])
-            factura.calcular_totales()
-
-        if factura.tipo == 'credito':
-            cliente = factura.cliente
-            if not cliente:
-                raise serializers.ValidationError('Cliente es requerido para facturas a crédito')
-            saldo_actual = cliente.saldo_actual
-            if cliente.limite_credito is not None and (saldo_actual + factura.total) > cliente.limite_credito:
-                raise serializers.ValidationError(
-                    f'El cliente {cliente.nombre} ha excedido su límite de crédito '
-                    f'(disponible: {cliente.saldo_disponible}, total factura: {factura.total})'
-                )
-
-            if factura.plazo_dias > 0 and not factura.fecha_vencimiento:
-                factura.fecha_vencimiento = (timezone.now().date() + timezone.timedelta(days=factura.plazo_dias))
-                factura.save(update_fields=['fecha_vencimiento'])
-
-            if factura.modalidad_cuotas:
-                num_cuotas = max(factura.cantidad_cuotas, 1)
-                monto_cuota = (factura.total / Decimal(str(num_cuotas))).quantize(Decimal('1'))
-                residuo = factura.total - (monto_cuota * num_cuotas)
-                for i in range(1, num_cuotas + 1):
-                    monto = monto_cuota + (residuo if i == num_cuotas else Decimal('0'))
-                    if factura.fecha_vencimiento:
-                        import datetime
-                        dias_por_cuota = factura.plazo_dias // num_cuotas if factura.plazo_dias > 0 else 30
-                        venc = factura.fecha_vencimiento + datetime.timedelta(days=(i - 1) * max(dias_por_cuota, 1))
-                    else:
-                        venc = timezone.now().date() + timezone.timedelta(days=30 * i)
-                    Cuota.objects.create(
-                        factura=factura, numero=i,
-                        monto=monto, fecha_vencimiento=venc,
-                    )
-
-            saldo_nuevo = saldo_actual + factura.total
-            CuentaMovimiento.objects.create(
-                cliente=cliente, tipo='debito',
-                monto=factura.total, saldo_resultante=saldo_nuevo,
-                factura=factura,
-                descripcion=f'Factura a crédito {factura.numero}',
-                usuario=request.user,
-            )
-
-        if factura.tipo == 'contado':
-            Pago.objects.create(
-                factura=factura, monto=factura.total,
-                metodo='efectivo', usuario=request.user,
-            )
-
-        if factura.tipo in ('contado', 'credito'):
-            config = ConfiguracionEmpresa.objects.first()
-            timbrado = None
-            if config and config.timbrado_activo:
-                from datetime import date
-                t = config.timbrado_activo
-                if (t.activo and t.fecha_inicio <= factura.fecha_emision.date() <= t.fecha_fin
-                        and t.numero_actual < t.rango_fin):
-                    timbrado = Timbrado.objects.select_for_update().get(id=t.id)
-            if not timbrado:
-                timbrado = Timbrado.objects.filter(
-                    activo=True,
-                    fecha_inicio__lte=factura.fecha_emision.date(),
-                    fecha_fin__gte=factura.fecha_emision.date(),
-                    numero_actual__lt=F('rango_fin'),
-                ).select_for_update().first()
-            if not timbrado:
-                raise serializers.ValidationError(
-                    'No hay un timbrado SET vigente con números disponibles para emitir facturas legales'
-                )
-            factura.timbrado_numero = timbrado.asignar_numero()
-            factura.timbrado = timbrado
-            factura.save(update_fields=['timbrado', 'timbrado_numero'])
-
-        for detalle in factura.detalles.all():
-            producto = detalle.producto
-            if not producto.controlar_stock:
-                continue
-            if producto.cantidad_stock < detalle.cantidad:
-                raise serializers.ValidationError(
-                    f"Stock insuficiente para {producto.nombre} "
-                    f"(disponible: {producto.cantidad_stock}, solicitado: {detalle.cantidad})"
-                )
-            # Descontar de los lotes usando FIFO (si existen)
-            from apps.stock.models import Lote, MovimientoStock
-            lotes = Lote.objects.select_for_update().filter(
-                producto=producto, activo=True, cantidad_actual__gt=0
-            ).order_by('fecha_vencimiento', 'fecha_ingreso')
-            
-            pendiente = detalle.cantidad
-            if lotes.exists():
-                for l in lotes:
-                    if pendiente <= 0:
-                        break
-                    descontar = min(pendiente, l.cantidad_actual)
-                    l.cantidad_actual -= descontar
-                    l.save(update_fields=['cantidad_actual'])
-                    MovimientoStock.objects.create(
-                        lote=l,
-                        factura=factura,
-                        tipo='salida',
-                        cantidad=descontar,
-                        descripcion=f"Venta {factura.numero}",
-                        usuario=request.user
-                    )
-                    pendiente -= descontar
-            
-            if pendiente > 0:
-                producto.cantidad_stock = max(0, producto.cantidad_stock - detalle.cantidad)
-                producto.save(update_fields=['cantidad_stock'])
+        from .services import FacturaService
+        service = FacturaService(factura, request)
+        service.create_invoice()
 
         return Response(
             FacturaDetailSerializer(factura).data,
@@ -179,12 +78,10 @@ class FacturaViewSet(viewsets.ModelViewSet):
         if factura.anulada:
             return Response({'error': 'Factura ya anulada'}, status=400)
 
-        for detalle in factura.detalles.all():
+        for detalle in factura.detalles.select_related('producto'):
             producto = detalle.producto
             if not producto.controlar_stock:
                 continue
-            # Restaurar stock a los lotes desde los movimientos de esta factura
-            from apps.stock.models import MovimientoStock
             movimientos = MovimientoStock.objects.filter(factura=factura, lote__producto=producto, tipo='salida')
             if movimientos.exists():
                 for mov in movimientos:
@@ -204,6 +101,14 @@ class FacturaViewSet(viewsets.ModelViewSet):
 
         factura.anulada = True
         factura.save(update_fields=['anulada'])
+
+        AuditLog.objects.create(
+            usuario_nombre=request.user.username,
+            accion='ANULAR',
+            modelo='Factura',
+            registro_id=factura.numero,
+            detalles=json.dumps({'total': float(factura.total), 'cliente': factura.cliente.nombre if factura.cliente else 'CF'})
+        )
 
         return Response({'status': 'Factura anulada'})
 
@@ -275,12 +180,10 @@ class FacturaViewSet(viewsets.ModelViewSet):
         nota.calcular_totales()
 
         if nota.tipo_nota == 'credito':
-            for detalle in nota.detalles.all():
+            for detalle in nota.detalles.select_related('producto'):
                 producto = detalle.producto
                 if not producto.controlar_stock:
                     continue
-                # Restaurar stock a los lotes desde los movimientos de la factura origen
-                from apps.stock.models import MovimientoStock
                 if nota.factura_origen:
                     movimientos = MovimientoStock.objects.filter(factura=nota.factura_origen, lote__producto=producto, tipo='salida')
                     if movimientos.exists():
@@ -395,3 +298,50 @@ class CuotaViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return Response(CuotaSerializer(cuota).data)
+
+class TimbradoAutofacturaViewSet(viewsets.ModelViewSet):
+    queryset = TimbradoAutofactura.objects.all()
+    serializer_class = TimbradoAutofacturaSerializer
+    permission_classes = [SoloAdmin]
+    search_fields = ['numero']
+    ordering_fields = ['-fecha_fin']
+    filterset_fields = ['activo']
+
+class AutofacturaViewSet(viewsets.ModelViewSet):
+    queryset = Autofactura.objects.select_related('usuario').prefetch_related('detalles')
+    permission_classes = [AdminOVendedor]
+    search_fields = ['numero', 'proveedor_nombre', 'proveedor_ci']
+    ordering_fields = ['fecha_emision', 'total']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AutofacturaListSerializer
+        elif self.action == 'create':
+            return AutofacturaCreateSerializer
+        return AutofacturaDetailSerializer
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        timbrado = TimbradoAutofactura.objects.filter(
+            activo=True,
+            fecha_inicio__lte=timezone.now().date(),
+            fecha_fin__gte=timezone.now().date(),
+            numero_actual__lt=F('rango_fin'),
+        ).select_for_update().first()
+        
+        if not timbrado:
+            raise serializers.ValidationError('No hay un timbrado de autofactura vigente con números disponibles')
+            
+        serializer.save(
+            usuario=request.user,
+            timbrado=timbrado,
+            timbrado_numero=timbrado.asignar_numero()
+        )
+        
+        return Response(
+            AutofacturaDetailSerializer(serializer.instance).data,
+            status=status.HTTP_201_CREATED
+        )

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Chip, Card, Grid2, Dialog, DialogTitle,
@@ -6,22 +6,15 @@ import {
 } from '@mui/material'
 import HistoryIcon from '@mui/icons-material/History'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useCajas } from '../hooks/useApi'
 
 export default function CajaHistorialPage() {
-  const [cajas, setCajas] = useState<any[]>([])
+  const { data: cajas, isLoading } = useCajas()
   const [selected, setSelected] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    api.get('/caja/cajas/').then(r => setCajas(r.data.results || r.data)).catch(() => {}).finally(() => setLoading(false))
-  }, [])
-
   const estadoColor: Record<string, any> = { abierta: 'success', cerrada: 'default' }
 
-  if (loading) return <LoadingState height={400} />
+  if (isLoading) return <LoadingState height={400} />
 
   return (
     <Box>

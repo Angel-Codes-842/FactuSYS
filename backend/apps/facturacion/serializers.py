@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Factura, DetalleFactura, Pago, Timbrado, Cuota
+from .models import Factura, DetalleFactura, Pago, Timbrado, Cuota, Autofactura, DetalleAutofactura, TimbradoAutofactura
 from apps.clientes.models import Cliente
 
 
@@ -161,3 +161,53 @@ class TimbradoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Timbrado
         fields = '__all__'
+
+class DetalleAutofacturaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DetalleAutofactura
+        fields = '__all__'
+        read_only_fields = ['autofactura']
+
+class TimbradoAutofacturaSerializer(serializers.ModelSerializer):
+    vigente = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = TimbradoAutofactura
+        fields = '__all__'
+
+class AutofacturaListSerializer(serializers.ModelSerializer):
+    usuario_nombre = serializers.CharField(source='usuario.username', read_only=True)
+    
+    class Meta:
+        model = Autofactura
+        fields = '__all__'
+
+class AutofacturaDetailSerializer(serializers.ModelSerializer):
+    detalles = DetalleAutofacturaSerializer(many=True, read_only=True)
+    usuario_nombre = serializers.CharField(source='usuario.username', read_only=True)
+    
+    class Meta:
+        model = Autofactura
+        fields = '__all__'
+
+class AutofacturaCreateSerializer(serializers.ModelSerializer):
+    detalles = DetalleAutofacturaSerializer(many=True)
+    
+    class Meta:
+        model = Autofactura
+        exclude = ['subtotal', 'total', 'creado', 'usuario', 'timbrado', 'timbrado_numero']
+        
+    def validate(self, attrs):
+        detalles = attrs.get('detalles', [])
+        if not detalles:
+            raise serializers.ValidationError('Debe incluir al menos un detalle en la autofactura')
+        return attrs
+
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles')
+        autofactura = Autofactura.objects.create(**validated_data)
+        from .models import DetalleAutofactura
+        for detalle_data in detalles_data:
+            DetalleAutofactura.objects.create(autofactura=autofactura, **detalle_data)
+        autofactura.calcular_totales()
+        return autofactura

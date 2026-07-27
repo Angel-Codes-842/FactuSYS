@@ -86,7 +86,7 @@ class Producto(models.Model):
         max_digits=8, decimal_places=2, null=True, blank=True
     )
     presentacion = models.CharField('Presentación', max_length=100, blank=True)
-    activo = models.BooleanField(default=True)
+    activo = models.BooleanField(default=True, db_index=True)
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 

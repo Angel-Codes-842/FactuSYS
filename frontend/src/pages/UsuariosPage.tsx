@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -9,8 +9,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useUsuarios, useRoles, useCrearUsuario, useActualizarUsuario, useEliminarUsuario } from '../hooks/useApi'
 
 const TIPOS_USUARIO = [
   { value: 'admin', label: 'Administrador' },
@@ -21,9 +21,11 @@ const TIPOS_USUARIO = [
 ]
 
 export default function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState<any[]>([])
-  const [roles, setRoles] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: usuarios, isLoading } = useUsuarios()
+  const { data: roles } = useRoles()
+  const crearUsuario = useCrearUsuario()
+  const actualizarUsuario = useActualizarUsuario()
+  const eliminarUsuario = useEliminarUsuario()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState<any>({
@@ -32,18 +34,6 @@ export default function UsuariosPage() {
   })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/auth/usuarios/'),
-      api.get('/auth/roles/'),
-    ]).then(([r1, r2]) => {
-      setUsuarios(r1.data.results || r1.data)
-      setRoles(r2.data.results || r2.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -58,16 +48,14 @@ export default function UsuariosPage() {
 
   const handleSave = async () => {
     try {
-      const url = '/auth/usuarios/'
       const payload = { ...form }
       if (!payload.password) delete payload.password
       if (editItem) {
-        await api.patch(`${url}${editItem.id}/`, payload)
+        await actualizarUsuario.mutateAsync({ id: editItem.id, data: payload })
       } else {
-        await api.post(url, payload)
+        await crearUsuario.mutateAsync(payload)
       }
       setOpen(false)
-      load()
       setSnack(editItem ? 'Usuario actualizado' : 'Usuario creado')
     } catch {
       setSnack('Error al guardar usuario')
@@ -76,9 +64,8 @@ export default function UsuariosPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await api.delete(`/auth/usuarios/${id}/`)
+      await eliminarUsuario.mutateAsync(id)
       setConfirmDelete(null)
-      load()
       setSnack('Usuario eliminado')
     } catch {
       setSnack('Error al eliminar usuario')
@@ -97,7 +84,7 @@ export default function UsuariosPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : usuarios.length === 0 ? (
+      {isLoading ? <LoadingState /> : usuarios.length === 0 ? (
         <EmptyState message="No hay usuarios registrados" />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -9,23 +9,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import StoreIcon from '@mui/icons-material/Store'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useSucursales, useCrearSucursal, useActualizarSucursal, useEliminarSucursal } from '../hooks/useApi'
 
 export default function SucursalesPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useSucursales()
+  const crearSucursal = useCrearSucursal()
+  const actualizarSucursal = useActualizarSucursal()
+  const eliminarSucursal = useEliminarSucursal()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', direccion: '', telefono: '', activo: true })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/sucursales/sucursales/').then(r => setItems(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -35,19 +31,17 @@ export default function SucursalesPage() {
 
   const handleSave = async () => {
     if (editItem) {
-      await api.patch(`/sucursales/sucursales/${editItem.id}/`, form)
+      await actualizarSucursal.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post('/sucursales/sucursales/', form)
+      await crearSucursal.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Sucursal actualizada' : 'Sucursal creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/sucursales/sucursales/${id}/`)
+    await eliminarSucursal.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Sucursal eliminada')
   }
 
@@ -60,7 +54,7 @@ export default function SucursalesPage() {
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>Nueva Sucursal</Button>
       </Box>
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay sucursales" action={{ label: 'Crear sucursal', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

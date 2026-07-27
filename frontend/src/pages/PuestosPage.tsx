@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,23 +8,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import WorkIcon from '@mui/icons-material/Work'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { usePuestos, useCrearPuesto, useActualizarPuesto, useEliminarPuesto } from '../hooks/useApi'
 
 export default function PuestosPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = usePuestos()
+  const crearPuesto = useCrearPuesto()
+  const actualizarPuesto = useActualizarPuesto()
+  const eliminarPuesto = useEliminarPuesto()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', salario_base: '', descripcion: '' })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/vendedores/puestos/').then(r => setItems(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -35,19 +31,17 @@ export default function PuestosPage() {
   const handleSave = async () => {
     const data = { ...form, salario_base: parseFloat(form.salario_base) || 0 }
     if (editItem) {
-      await api.patch(`/vendedores/puestos/${editItem.id}/`, data)
+      await actualizarPuesto.mutateAsync({ id: editItem.id, data })
     } else {
-      await api.post('/vendedores/puestos/', data)
+      await crearPuesto.mutateAsync(data)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Puesto actualizado' : 'Puesto creado')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/vendedores/puestos/${id}/`)
+    await eliminarPuesto.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Puesto eliminado')
   }
 
@@ -63,7 +57,7 @@ export default function PuestosPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay puestos aún" action={{ label: 'Crear puesto', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

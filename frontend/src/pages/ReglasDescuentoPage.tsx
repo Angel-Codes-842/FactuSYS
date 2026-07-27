@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -9,23 +9,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useReglasDescuento, useCrearReglaDescuento, useActualizarReglaDescuento, useEliminarReglaDescuento } from '../hooks/useApi'
 
 export default function ReglasDescuentoPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useReglasDescuento()
+  const crearRegla = useCrearReglaDescuento()
+  const actualizarRegla = useActualizarReglaDescuento()
+  const eliminarRegla = useEliminarReglaDescuento()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ tipo: 'volumen', valor_condicion: '', descuento_porcentaje: '', activo: true })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/descuentos/reglas/').then(r => setItems(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -46,19 +42,17 @@ export default function ReglasDescuentoPage() {
       activo: form.activo,
     }
     if (editItem) {
-      await api.patch(`/descuentos/reglas/${editItem.id}/`, data)
+      await actualizarRegla.mutateAsync({ id: editItem.id, data })
     } else {
-      await api.post('/descuentos/reglas/', data)
+      await crearRegla.mutateAsync(data)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Regla de descuento actualizada' : 'Regla de descuento creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/descuentos/reglas/${id}/`)
+    await eliminarRegla.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Regla de descuento eliminada')
   }
 
@@ -80,7 +74,7 @@ export default function ReglasDescuentoPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay reglas de descuento aún" action={{ label: 'Crear regla', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

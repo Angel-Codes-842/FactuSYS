@@ -16,6 +16,7 @@ import CategoriasPage from './pages/CategoriasPage'
 import MarcasPage from './pages/MarcasPage'
 import VentasPage from './pages/VentasPage'
 import ConfiguracionPage from './pages/ConfiguracionPage'
+import AuditoriaPage from './pages/AuditoriaPage'
 import UsuariosPage from './pages/UsuariosPage'
 import CuentasCorrientesPage from './pages/CuentasCorrientesPage'
 import VendedoresPage from './pages/VendedoresPage'
@@ -27,6 +28,9 @@ import TransferenciasPage from './pages/TransferenciasPage'
 import TransportistasPage from './pages/TransportistasPage'
 import ZonasPage from './pages/ZonasPage'
 import NotasRemisionPage from './pages/NotasRemisionPage'
+import AutofacturasPage from './pages/AutofacturasPage'
+import ResetPassword from './pages/ResetPassword'
+import ResetPasswordConfirm from './pages/ResetPasswordConfirm'
 import { CircularProgress, Box } from '@mui/material'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -39,6 +43,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirm />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="clientes" element={<ClientesPage />} />
@@ -54,6 +60,7 @@ export default function App() {
         <Route path="presupuestos" element={<PresupuestosPage />} />
         <Route path="caja/historial" element={<CajaHistorialPage />} />
         <Route path="configuracion" element={<ConfiguracionPage />} />
+        <Route path="auditoria" element={<AuditoriaPage />} />
         <Route path="usuarios" element={<UsuariosPage />} />
         <Route path="cuentas-corrientes" element={<CuentasCorrientesPage />} />
         <Route path="vendedores" element={<VendedoresPage />} />
@@ -65,6 +72,7 @@ export default function App() {
         <Route path="logistica/transportistas" element={<TransportistasPage />} />
         <Route path="logistica/zonas" element={<ZonasPage />} />
         <Route path="logistica/notas-remision" element={<NotasRemisionPage />} />
+        <Route path="autofacturas" element={<AutofacturasPage />} />
       </Route>
     </Routes>
   )

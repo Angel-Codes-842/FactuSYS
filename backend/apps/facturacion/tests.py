@@ -6,8 +6,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.productos.models import Categoria, Producto
-from apps.clientes.models import Cliente
+from apps.clientes.models import Cliente, CuentaMovimiento
 from apps.empresa.models import ConfiguracionEmpresa
+from apps.stock.models import Lote, MovimientoStock
+from apps.descuentos.models import ReglaDescuento
 from .models import Factura, DetalleFactura, Pago, Timbrado, Cuota
 
 User = get_user_model()
@@ -193,7 +195,7 @@ class TimbradoAPITestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
-            username='testuser', password='testpass123'
+            username='testuser', password='testpass123', tipo='admin',
         )
         self.client.force_authenticate(user=self.user)
         self.timbrado = Timbrado.objects.create(
@@ -701,3 +703,232 @@ class MarkOverdueCuotasCommandTest(TestCase):
         call_command('mark_overdue_cuotas', stdout=out)
         cuota = Cuota.objects.get()
         self.assertEqual(cuota.estado, 'pagada')
+
+
+class FacturaServiceTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='admin', password='x', tipo='admin',
+        )
+        self.categoria = Categoria.objects.create(nombre='Test')
+        self.producto = Producto.objects.create(
+            codigo='P001', nombre='Test',
+            categoria=self.categoria, precio_venta=Decimal('10000'),
+            cantidad_stock=100,
+        )
+        self.cliente = Cliente.objects.create(
+            nombre='Cli', ruc_ci='123',
+            limite_credito=Decimal('50000'),
+        )
+        Timbrado.objects.create(
+            numero='12345678',
+            fecha_inicio=date.today() - timedelta(days=30),
+            fecha_fin=date.today() + timedelta(days=300),
+            rango_inicio=1, rango_fin=500,
+        )
+
+    def _make_request(self):
+        from django.http import HttpRequest
+        req = HttpRequest()
+        req.user = self.user
+        return req
+
+    def _create_factura(self, tipo='contado', **kwargs):
+        from .serializers import FacturaCreateSerializer
+        data = {
+            'tipo': tipo,
+            'cliente': self.cliente,
+            'usuario': self.user,
+        }
+        data.update(kwargs)
+        factura = Factura.objects.create(**data)
+        DetalleFactura.objects.create(
+            factura=factura, producto=self.producto,
+            cantidad=2, precio_unitario=Decimal('11000'),
+            iva_incluido=True,
+        )
+        factura.calcular_totales()
+        return factura
+
+    def test_apply_best_discount_monto_minimo(self):
+        ReglaDescuento.objects.create(
+            tipo='monto_minimo', valor_condicion=Decimal('1000'),
+            descuento_porcentaje=Decimal('10'), activo=True,
+        )
+        factura = self._create_factura()
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.apply_best_discount()
+        factura.refresh_from_db()
+        self.assertEqual(factura.descuento_porcentaje, Decimal('10'))
+
+    def test_apply_best_discount_volumen(self):
+        ReglaDescuento.objects.create(
+            tipo='volumen', valor_condicion=Decimal('2'),
+            descuento_porcentaje=Decimal('15'), activo=True,
+        )
+        factura = self._create_factura(tipo='contado')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.apply_best_discount()
+        factura.refresh_from_db()
+        self.assertEqual(factura.descuento_porcentaje, Decimal('15'))
+
+    def test_apply_best_discount_takes_max(self):
+        ReglaDescuento.objects.create(
+            tipo='monto_minimo', valor_condicion=Decimal('1000'),
+            descuento_porcentaje=Decimal('10'), activo=True,
+        )
+        ReglaDescuento.objects.create(
+            tipo='volumen', valor_condicion=Decimal('1'),
+            descuento_porcentaje=Decimal('20'), activo=True,
+        )
+        factura = self._create_factura()
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.apply_best_discount()
+        factura.refresh_from_db()
+        self.assertEqual(factura.descuento_porcentaje, Decimal('20'))
+
+    def test_process_credit_creates_movement(self):
+        factura = self._create_factura(tipo='credito')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.process_credit()
+        self.assertTrue(CuentaMovimiento.objects.filter(
+            factura=factura, tipo='debito'
+        ).exists())
+        mov = CuentaMovimiento.objects.get(factura=factura)
+        self.assertEqual(mov.monto, factura.total)
+
+    def test_process_credit_exceeds_limit(self):
+        self.cliente.limite_credito = Decimal('100')
+        self.cliente.save()
+        factura = self._create_factura(tipo='credito')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        with self.assertRaises(Exception):
+            svc.process_credit()
+
+    def test_process_credit_generates_installments(self):
+        factura = self._create_factura(
+            tipo='credito', modalidad_cuotas=True,
+            cantidad_cuotas=3, plazo_dias=60,
+        )
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.process_credit()
+        cuotas = factura.cuotas.order_by('numero')
+        self.assertEqual(cuotas.count(), 3)
+        for c in cuotas:
+            self.assertEqual(c.estado, 'pendiente')
+
+    def test_create_contado_payment(self):
+        factura = self._create_factura(tipo='contado')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.create_contado_payment()
+        self.assertEqual(factura.pagos.count(), 1)
+        pago = factura.pagos.first()
+        self.assertEqual(pago.monto, factura.total)
+        self.assertEqual(pago.metodo, 'efectivo')
+
+    def test_assign_timbrado(self):
+        factura = self._create_factura(tipo='contado')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.assign_timbrado()
+        factura.refresh_from_db()
+        self.assertIsNotNone(factura.timbrado)
+        self.assertTrue(factura.timbrado_numero.startswith('12345678-'))
+
+    def test_assign_timbrado_no_disponible_raises(self):
+        Timbrado.objects.update(numero_actual=500)
+        factura = self._create_factura(tipo='contado')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        with self.assertRaises(Exception):
+            svc.assign_timbrado()
+
+    def test_deduct_stock_with_lotes(self):
+        Lote.objects.create(
+            codigo='LOTE-001', producto=self.producto,
+            cantidad_inicial=50, cantidad_actual=50,
+            precio_compra_unitario=Decimal('5000'),
+        )
+        factura = self._create_factura(tipo='ticket')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.deduct_stock()
+        lote = Lote.objects.get(codigo='LOTE-001')
+        self.assertEqual(lote.cantidad_actual, 48)
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.cantidad_stock, 48)
+
+    def test_deduct_stock_insufficient_raises(self):
+        factura = self._create_factura(tipo='ticket')
+        self.producto.cantidad_stock = 1
+        self.producto.save()
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        with self.assertRaises(Exception):
+            svc.deduct_stock()
+
+    def test_deduct_stock_fifo_order(self):
+        Lote.objects.create(
+            codigo='LOTE-VIEJO', producto=self.producto,
+            cantidad_inicial=10, cantidad_actual=10,
+            precio_compra_unitario=Decimal('5000'),
+            fecha_vencimiento=date.today() + timedelta(days=10),
+        )
+        Lote.objects.create(
+            codigo='LOTE-NUEVO', producto=self.producto,
+            cantidad_inicial=10, cantidad_actual=10,
+            precio_compra_unitario=Decimal('5000'),
+            fecha_vencimiento=date.today() + timedelta(days=30),
+        )
+        factura = self._create_factura(tipo='ticket')
+        DetalleFactura.objects.filter(factura=factura).update(cantidad=15)
+        factura.calcular_totales()
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.deduct_stock()
+        lote_viejo = Lote.objects.get(codigo='LOTE-VIEJO')
+        lote_nuevo = Lote.objects.get(codigo='LOTE-NUEVO')
+        self.assertEqual(lote_viejo.cantidad_actual, 0)
+        self.assertEqual(lote_nuevo.cantidad_actual, 5)
+
+    def test_deduct_stock_fallback_when_no_lotes(self):
+        factura = self._create_factura(tipo='ticket')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.deduct_stock()
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.cantidad_stock, 98)
+
+    def test_create_invoice_contado_full_flow(self):
+        factura = self._create_factura(tipo='contado')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.create_invoice()
+        factura.refresh_from_db()
+        self.assertEqual(factura.pagos.count(), 1)
+        self.assertIsNotNone(factura.timbrado)
+        self.producto.refresh_from_db()
+
+    def test_create_invoice_credito_full_flow(self):
+        factura = self._create_factura(tipo='credito')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.create_invoice()
+        self.assertTrue(CuentaMovimiento.objects.filter(factura=factura).exists())
+        self.assertIsNotNone(factura.timbrado)
+
+    def test_create_invoice_ticket_flow(self):
+        factura = self._create_factura(tipo='ticket')
+        from .services import FacturaService
+        svc = FacturaService(factura, self._make_request())
+        svc.create_invoice()
+        factura.refresh_from_db()
+        self.assertEqual(factura.pagos.count(), 0)
+        self.assertIsNone(factura.timbrado)

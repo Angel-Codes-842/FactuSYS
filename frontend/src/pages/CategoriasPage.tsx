@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,23 +8,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import CategoryIcon from '@mui/icons-material/Category'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useCategorias, useCrearCategoria, useActualizarCategoria, useEliminarCategoria } from '../hooks/useApi'
 
 export default function CategoriasPage() {
-  const [categorias, setCategorias] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: categorias, isLoading } = useCategorias()
+  const crearCategoria = useCrearCategoria()
+  const actualizarCategoria = useActualizarCategoria()
+  const eliminarCategoria = useEliminarCategoria()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', descripcion: '' })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/productos/categorias/').then(r => setCategorias(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -34,19 +30,17 @@ export default function CategoriasPage() {
 
   const handleSave = async () => {
     if (editItem) {
-      await api.patch(`/productos/categorias/${editItem.id}/`, form)
+      await actualizarCategoria.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post('/productos/categorias/', form)
+      await crearCategoria.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Categoría actualizada' : 'Categoría creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/productos/categorias/${id}/`)
+    await eliminarCategoria.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Categoría eliminada')
   }
 
@@ -62,7 +56,7 @@ export default function CategoriasPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : categorias.length === 0 ? (
+      {isLoading ? <LoadingState /> : categorias.length === 0 ? (
         <EmptyState message="No hay categorías aún" action={{ label: 'Crear categoría', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

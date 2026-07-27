@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,42 +8,31 @@ import {
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import AddCircleIcon from '@mui/icons-material/AddCircle'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useClientes, useCuentaCorriente, useRegistrarDebito, useRegistrarPagoCuenta } from '../hooks/useApi'
 
 export default function CuentasCorrientesPage() {
-  const [clientes, setClientes] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<any>(null)
-  const [movimientos, setMovimientos] = useState<any[]>([])
-  const [loadingMov, setLoadingMov] = useState(false)
+  const { data: clientes, isLoading } = useClientes()
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const { data: cuentaData, isFetching: loadingMov } = useCuentaCorriente(selectedId)
+  const registrarDebito = useRegistrarDebito()
+  const registrarPago = useRegistrarPagoCuenta()
   const [openDebito, setOpenDebito] = useState(false)
   const [openPago, setOpenPago] = useState(false)
   const [monto, setMonto] = useState(0)
   const [descripcion, setDescripcion] = useState('')
   const [snack, setSnack] = useState('')
 
-  useEffect(() => {
-    setLoading(true)
-    api.get('/clientes/clientes/').then(r => setClientes(r.data.results || r.data)).finally(() => setLoading(false))
-  }, [])
-
-  const loadCuenta = (id: number) => {
-    setLoadingMov(true)
-    api.get(`/clientes/clientes/${id}/cuenta_corriente/`).then(r => {
-      setSelected({ ...r.data, cliente_id: id })
-      setMovimientos(r.data.movimientos || [])
-    }).finally(() => setLoadingMov(false))
-  }
+  const selected = selectedId ? { ...cuentaData, cliente_id: selectedId } : null
+  const movimientos = cuentaData?.movimientos || []
 
   const handleDebito = async () => {
     if (!selected) return
     try {
-      await api.post(`/clientes/clientes/${selected.cliente_id}/registrar_debito/`, { monto, descripcion: descripcion || `Débito de Gs. ${monto}` })
+      await registrarDebito.mutateAsync({ clienteId: selected.cliente_id, data: { monto, descripcion: descripcion || `Débito de Gs. ${monto}` } })
       setOpenDebito(false)
       setMonto(0)
       setDescripcion('')
-      loadCuenta(selected.cliente_id)
       setSnack('Débito registrado')
     } catch { setSnack('Error al registrar débito') }
   }
@@ -51,11 +40,10 @@ export default function CuentasCorrientesPage() {
   const handlePago = async () => {
     if (!selected) return
     try {
-      await api.post(`/clientes/clientes/${selected.cliente_id}/registrar_pago_cuenta/`, { monto, descripcion: descripcion || `Pago de Gs. ${monto}` })
+      await registrarPago.mutateAsync({ clienteId: selected.cliente_id, data: { monto, descripcion: descripcion || `Pago de Gs. ${monto}` } })
       setOpenPago(false)
       setMonto(0)
       setDescripcion('')
-      loadCuenta(selected.cliente_id)
       setSnack('Pago registrado')
     } catch { setSnack('Error al registrar pago') }
   }
@@ -76,7 +64,7 @@ export default function CuentasCorrientesPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" mb={2}>Clientes</Typography>
-              {loading ? <LoadingState /> : clientes.length === 0 ? (
+              {isLoading ? <LoadingState /> : clientes.length === 0 ? (
                 <EmptyState message="Sin clientes" />
               ) : (
                 <Box display="flex" flexDirection="column" gap={0.5}>
@@ -87,7 +75,7 @@ export default function CuentasCorrientesPage() {
                       <Button
                         key={c.id}
                         variant={selected?.cliente_id === c.id ? 'contained' : 'outlined'}
-                        onClick={() => loadCuenta(c.id)}
+                        onClick={() => setSelectedId(c.id)}
                         sx={{ justifyContent: 'space-between', textTransform: 'none', py: 1 }}
                         color={esDeudor ? 'warning' : 'primary'}
                       >

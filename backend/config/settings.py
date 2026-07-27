@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'apps.descuentos',
     'apps.logistica',
     'apps.stock',
-    # 'apps.sifen',  # Deshabilitado temporalmente; habilitar cuando se implemente facturación electrónica SIFEN
+    'apps.sifen',   # Siempre instalado (migraciones disponibles); activación controlada por ConfiguracionEmpresa.sifen_habilitado
     ]
 
 MIDDLEWARE = [
@@ -83,6 +83,7 @@ DATABASES = {
         'HOST': os.environ.get('DB_HOST', 'db'),
         'PORT': 5432,
         'CONN_MAX_AGE': 300,
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 
@@ -207,9 +208,22 @@ SPECTACULAR_SETTINGS = {
 
 SIFEN_AMBIENTE = os.environ.get('SIFEN_AMBIENTE', 'homologacion')
 
-IVA_PORCENTAJE = 10
-MONEDA = 'PYG'
-MONEDA_SIMBOLO = 'Gs.'
-EMPRESA_NOMBRE = 'FactuSYS'
-EMPRESA_CIUDAD = 'Pilar'
-EMPRESA_PAIS = 'Paraguay'
+IVA_PORCENTAJE = int(os.environ.get('IVA_PORCENTAJE', '10'))
+MONEDA = os.environ.get('MONEDA', 'PYG')
+MONEDA_SIMBOLO = os.environ.get('MONEDA_SIMBOLO', 'Gs.')
+EMPRESA_NOMBRE = os.environ.get('EMPRESA_NOMBRE', 'FactuSYS')
+EMPRESA_CIUDAD = os.environ.get('EMPRESA_CIUDAD', 'Pilar')
+EMPRESA_PAIS = os.environ.get('EMPRESA_PAIS', 'Paraguay')
+
+# Email Configuration
+if os.environ.get('EMAIL_HOST'):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = bool(int(os.environ.get('EMAIL_USE_TLS', 1)))
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@factusys.local')

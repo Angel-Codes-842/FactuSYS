@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -8,23 +8,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import BookmarkIcon from '@mui/icons-material/Bookmark'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useMarcas, useCrearMarca, useActualizarMarca, useEliminarMarca } from '../hooks/useApi'
 
 export default function MarcasPage() {
-  const [marcas, setMarcas] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: marcas, isLoading } = useMarcas()
+  const crearMarca = useCrearMarca()
+  const actualizarMarca = useActualizarMarca()
+  const eliminarMarca = useEliminarMarca()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', activo: true })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/productos/marcas/').then(r => setMarcas(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -34,19 +30,17 @@ export default function MarcasPage() {
 
   const handleSave = async () => {
     if (editItem) {
-      await api.patch(`/productos/marcas/${editItem.id}/`, form)
+      await actualizarMarca.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post('/productos/marcas/', form)
+      await crearMarca.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Marca actualizada' : 'Marca creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/productos/marcas/${id}/`)
+    await eliminarMarca.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Marca eliminada')
   }
 
@@ -62,7 +56,7 @@ export default function MarcasPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : marcas.length === 0 ? (
+      {isLoading ? <LoadingState /> : marcas.length === 0 ? (
         <EmptyState message="No hay marcas aún" action={{ label: 'Crear marca', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

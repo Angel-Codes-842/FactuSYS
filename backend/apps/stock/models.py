@@ -72,8 +72,21 @@ class MovimientoStock(models.Model):
 
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+import threading
+
+_recalculating = threading.local()
 
 @receiver([post_save, post_delete], sender=Lote)
 def sync_producto_stock(sender, instance, **kwargs):
-    if instance.producto:
+    if not instance.producto:
+        return
+    if not hasattr(_recalculating, 'ids'):
+        _recalculating.ids = set()
+    pid = instance.producto_id
+    if pid in _recalculating.ids:
+        return
+    _recalculating.ids.add(pid)
+    try:
         instance.producto.actualizar_stock_desde_lotes()
+    finally:
+        _recalculating.ids.discard(pid)

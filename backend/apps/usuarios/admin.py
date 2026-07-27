@@ -1,15 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Usuario, Rol
-
+from .models import Usuario
 
 @admin.register(Usuario)
-class UsuarioAdmin(UserAdmin):
+class CustomUserAdmin(UserAdmin):
+    list_display = ('username', 'email', 'first_name', 'last_name', 'tipo', 'is_staff')
+    list_filter = ('tipo', 'is_staff', 'is_superuser', 'is_active')
     fieldsets = UserAdmin.fieldsets + (
-        ('Información adicional', {'fields': ('tipo', 'telefono', 'direccion', 'roles')}),
+        ('Información Adicional', {'fields': ('tipo', 'telefono', 'direccion', 'sucursal')}),
     )
-
-
-@admin.register(Rol)
-class RolAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'descripcion']
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ('Información Adicional', {'fields': ('tipo', 'telefono', 'direccion', 'sucursal')}),
+    )

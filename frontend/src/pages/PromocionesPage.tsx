@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -10,13 +10,15 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import CloseIcon from '@mui/icons-material/Close'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { usePromociones, useProductos, useCrearPromocion, useActualizarPromocion, useEliminarPromocion } from '../hooks/useApi'
 
 export default function PromocionesPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [productos, setProductos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = usePromociones()
+  const { data: productos } = useProductos()
+  const crearPromocion = useCrearPromocion()
+  const actualizarPromocion = useActualizarPromocion()
+  const eliminarPromocion = useEliminarPromocion()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({
@@ -28,18 +30,6 @@ export default function PromocionesPage() {
   })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/descuentos/promociones/'),
-      api.get('/productos/productos/'),
-    ]).then(([r1, r2]) => {
-      setItems(r1.data.results || r1.data)
-      setProductos(r2.data.results || r2.data)
-    }).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -68,19 +58,17 @@ export default function PromocionesPage() {
       })),
     }
     if (editItem) {
-      await api.patch(`/descuentos/promociones/${editItem.id}/`, data)
+      await actualizarPromocion.mutateAsync({ id: editItem.id, data })
     } else {
-      await api.post('/descuentos/promociones/', data)
+      await crearPromocion.mutateAsync(data)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Promoción actualizada' : 'Promoción creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/descuentos/promociones/${id}/`)
+    await eliminarPromocion.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Promoción eliminada')
   }
 
@@ -115,7 +103,7 @@ export default function PromocionesPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay promociones aún" action={{ label: 'Crear promoción', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

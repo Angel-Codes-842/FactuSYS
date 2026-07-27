@@ -1,76 +1,138 @@
 import { useState, useEffect } from 'react'
 import {
   Box, Typography, Card, CardContent, TextField, Button,
-  FormControl, InputLabel, Select, MenuItem,
+  FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch,
   Snackbar, Alert, Grid2, CircularProgress, Chip, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Accordion, AccordionSummary, AccordionDetails, Divider, Collapse, Tabs, Tab
 } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import PrintIcon from '@mui/icons-material/Print'
+import SecurityIcon from '@mui/icons-material/Security'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import api from '../services/api'
+import { useEmpresaConfig, useTimbrados, useTimbradosAutofactura, useActualizarEmpresaConfig, useCrearTimbrado, useActualizarTimbrado, useEliminarTimbrado } from '../hooks/useApi'
+
+function TimbradoTable({ rows, onEdit, onDelete }: { rows: any[], onEdit: (t: any) => void, onDelete: (id: number) => void }) {
+  return (
+    <TableContainer sx={{ overflowX: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 700 }}>Nº Timbrado</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Vigencia</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Rango</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Usados</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 700 }}>Estado</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 700 }}>Acciones</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((t: any) => (
+            <TableRow key={t.id} hover>
+              <TableCell sx={{ fontWeight: 600 }}>{t.numero}</TableCell>
+              <TableCell>
+                {new Date(t.fecha_inicio).toLocaleDateString('es-PY')}
+                {' — '}
+                {new Date(t.fecha_fin).toLocaleDateString('es-PY')}
+              </TableCell>
+              <TableCell>{t.rango_inicio} — {t.rango_fin}</TableCell>
+              <TableCell>{t.numero_actual}</TableCell>
+              <TableCell align="center">
+                <Chip size="small"
+                  label={t.vigente ? 'Vigente' : t.activo ? 'Inactivo' : 'Vencido'}
+                  color={t.vigente ? 'success' : 'default'}
+                />
+              </TableCell>
+              <TableCell align="right">
+                <IconButton size="small" onClick={() => onEdit(t)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" color="error" onClick={() => onDelete(t.id)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
 
 export default function ConfiguracionPage() {
-  const [loading, setLoading] = useState(true)
+  const { data: empresaConfig, isLoading } = useEmpresaConfig()
+  const { data: timbrados } = useTimbrados()
+  const { data: timbradosAF } = useTimbradosAutofactura()
+  const guardarConfig = useActualizarEmpresaConfig()
+  const crearTimbrado = useCrearTimbrado()
+  const actualizarTimbrado = useActualizarTimbrado()
+  const eliminarTimbrado = useEliminarTimbrado()
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<any>({
-    nombre: '', ruc: '', direccion: '', telefono: '', ciudad: '',
-    timbrado_activo: '', pie_factura: '', logo: null,
-  })
-  const [timbrados, setTimbrados] = useState<any[]>([])
-  const [snack, setSnack] = useState('')
   const [configId, setConfigId] = useState<number | null>(null)
+  
+  const [form, setForm] = useState<any>({
+    nombre: '', ruc: '', direccion: '', telefono: '', ciudad: '', rubro: 'general',
+    formato_impresion: 'a4', timbrado_activo: '', pie_factura: '',
+    sifen_habilitado: false, sifen_ambiente: 'homologacion',
+    clave_certificado_sifen: '', logo: null, certificado_sifen: null,
+  })
+
+  const [timbradosTab, setTimbradosTab] = useState(0)
+  const [snack, setSnack] = useState('')
+  
   const [timbradoDialog, setTimbradoDialog] = useState(false)
   const [timbradoEdit, setTimbradoEdit] = useState<any>(null)
+  const [timbradoTipo, setTimbradoTipo] = useState<'factura' | 'autofactura'>('factura')
   const [timbradoForm, setTimbradoForm] = useState({
     numero: '', fecha_inicio: '', fecha_fin: '',
     rango_inicio: '', rango_fin: '', activo: true,
   })
 
   useEffect(() => {
-    Promise.all([
-      api.get('/empresa/configuracion/actual/'),
-      api.get('/facturacion/timbrados/'),
-    ]).then(([r1, r2]) => {
-      const c = r1.data
-      if (c && c.id) {
-        setConfigId(c.id)
-        setForm({
-          nombre: c.nombre || '',
-          ruc: c.ruc || '',
-          direccion: c.direccion || '',
-          telefono: c.telefono || '',
-          ciudad: c.ciudad || '',
-          timbrado_activo: c.timbrado_activo || '',
-          pie_factura: c.pie_factura || '',
-          logo: null,
-        })
-      }
-      setTimbrados(r2.data.results || r2.data)
-    }).catch(() => setSnack('Error al cargar configuración'))
-    .finally(() => setLoading(false))
-  }, [])
+    if (empresaConfig?.id) {
+      setConfigId(empresaConfig.id)
+      setForm({
+        nombre: empresaConfig.nombre || '',
+        ruc: empresaConfig.ruc || '',
+        direccion: empresaConfig.direccion || '',
+        telefono: empresaConfig.telefono || '',
+        ciudad: empresaConfig.ciudad || '',
+        rubro: empresaConfig.rubro || 'general',
+        formato_impresion: empresaConfig.formato_impresion || 'a4',
+        timbrado_activo: empresaConfig.timbrado_activo || '',
+        pie_factura: empresaConfig.pie_factura || '',
+        sifen_habilitado: empresaConfig.sifen_habilitado || false,
+        sifen_ambiente: empresaConfig.sifen_ambiente || 'homologacion',
+        clave_certificado_sifen: '',
+        logo: null,
+        certificado_sifen: null,
+      })
+    }
+  }, [empresaConfig])
 
   const handleSave = async () => {
     setSaving(true)
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]: [string, any]) => {
-        if (k === 'logo') {
+        if (k === 'logo' || k === 'certificado_sifen') {
           if (v) fd.append(k, v as Blob)
         } else if (k === 'timbrado_activo' && !v) {
+        } else if (k === 'clave_certificado_sifen' && !v) {
         } else {
           fd.append(k, String(v))
         }
       })
-      if (configId) {
-        await api.patch(`/empresa/configuracion/${configId}/`, fd)
-      } else {
-        await api.post('/empresa/configuracion/', fd)
-      }
-      setSnack('Configuración guardada')
+      await guardarConfig.mutateAsync({ id: configId ?? undefined, data: fd })
+      setSnack('Configuración guardada. Refresque para ver cambios en el menú.')
     } catch (e: any) {
       setSnack(e?.response?.data ? `Error: ${JSON.stringify(e.response.data)}` : 'Error al guardar')
     } finally {
@@ -82,12 +144,23 @@ export default function ConfiguracionPage() {
     if (t) {
       setTimbradoEdit(t)
       setTimbradoForm({
-        numero: t.numero,
-        fecha_inicio: t.fecha_inicio,
-        fecha_fin: t.fecha_fin,
-        rango_inicio: String(t.rango_inicio),
-        rango_fin: String(t.rango_fin),
-        activo: t.activo,
+        numero: t.numero, fecha_inicio: t.fecha_inicio, fecha_fin: t.fecha_fin,
+        rango_inicio: String(t.rango_inicio), rango_fin: String(t.rango_fin), activo: t.activo,
+      })
+    } else {
+      setTimbradoEdit(null)
+      setTimbradoForm({ numero: '', fecha_inicio: '', fecha_fin: '', rango_inicio: '', rango_fin: '', activo: true })
+    }
+    setTimbradoDialog(true)
+  }
+
+  const openTimbradoDialogAF = (t?: any) => {
+    setTimbradoTipo('autofactura')
+    if (t) {
+      setTimbradoEdit(t)
+      setTimbradoForm({
+        numero: t.numero, fecha_inicio: t.fecha_inicio, fecha_fin: t.fecha_fin,
+        rango_inicio: String(t.rango_inicio), rango_fin: String(t.rango_fin), activo: t.activo,
       })
     } else {
       setTimbradoEdit(null)
@@ -98,69 +171,71 @@ export default function ConfiguracionPage() {
 
   const handleGuardarTimbrado = async () => {
     try {
-      const payload = {
-        ...timbradoForm,
-        rango_inicio: Number(timbradoForm.rango_inicio),
-        rango_fin: Number(timbradoForm.rango_fin),
-      }
+      const payload = { ...timbradoForm, rango_inicio: Number(timbradoForm.rango_inicio), rango_fin: Number(timbradoForm.rango_fin) }
+      const tipo: 'normal' | 'autofactura' = timbradoTipo === 'autofactura' ? 'autofactura' : 'normal'
       if (timbradoEdit) {
-        await api.patch(`/facturacion/timbrados/${timbradoEdit.id}/`, payload)
+        await actualizarTimbrado.mutateAsync({ tipo, id: timbradoEdit.id, data: payload })
       } else {
-        await api.post('/facturacion/timbrados/', payload)
+        await crearTimbrado.mutateAsync({ tipo, data: payload })
       }
       setTimbradoDialog(false)
-      const r = await api.get('/facturacion/timbrados/')
-      setTimbrados(r.data.results || r.data)
       setSnack(timbradoEdit ? 'Timbrado actualizado' : 'Timbrado creado')
     } catch (e: any) {
       setSnack(e?.response?.data ? `Error: ${JSON.stringify(e.response.data)}` : 'Error al guardar timbrado')
     }
   }
 
-  const handleEliminarTimbrado = async (id: number) => {
+  const handleEliminarTimbrado = async (id: number, tipo: 'factura' | 'autofactura' = 'factura') => {
     try {
-      await api.delete(`/facturacion/timbrados/${id}/`)
-      const r = await api.get('/facturacion/timbrados/')
-      setTimbrados(r.data.results || r.data)
-      if (form.timbrado_activo === id) {
-        setForm((prev: any) => ({ ...prev, timbrado_activo: '' }))
-      }
+      await eliminarTimbrado.mutateAsync({ tipo: tipo === 'autofactura' ? 'autofactura' : 'normal', id })
+      if (tipo === 'factura' && form.timbrado_activo === id) setForm((prev: any) => ({ ...prev, timbrado_activo: '' }))
       setSnack('Timbrado eliminado')
     } catch {
       setSnack('Error al eliminar timbrado')
     }
   }
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
-      </Box>
-    )
-  }
+  if (isLoading) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
 
   return (
     <Box>
       <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3}>
         <Typography variant="h4" fontWeight="bold">
           <SettingsIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-          Configuración
+          Configuración Global
         </Typography>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando...' : 'Guardar'}
+        <Button variant="contained" onClick={handleSave} disabled={saving} size="large">
+          {saving ? 'Guardando...' : 'Guardar Cambios'}
         </Button>
       </Box>
 
       <Grid2 container spacing={3}>
         <Grid2 size={{ xs: 12, md: 8 }}>
-          <Card>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" mb={2}>Datos de la Empresa</Typography>
-              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
-                <TextField label="Nombre de la empresa" value={form.nombre}
-                  onChange={e => setForm({...form, nombre: e.target.value})} />
+              <Typography variant="h6" mb={2} display="flex" alignItems="center">
+                <StorefrontIcon sx={{ mr: 1 }} color="primary" /> Perfil del Negocio
+              </Typography>
+              <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2}>
+                <TextField label="Nombre de la empresa / Razón Social" value={form.nombre}
+                  onChange={e => setForm({...form, nombre: e.target.value})} sx={{ gridColumn: '1 / -1' }} />
                 <TextField label="RUC" value={form.ruc}
                   onChange={e => setForm({...form, ruc: e.target.value})} />
+                <FormControl>
+                  <InputLabel>Rubro / Giro Comercial</InputLabel>
+                  <Select value={form.rubro} label="Rubro / Giro Comercial"
+                    onChange={e => setForm({...form, rubro: e.target.value})}>
+                    <MenuItem value="general">General / Otro</MenuItem>
+                    <MenuItem value="autoservicio">Autoservicio / Minimarket</MenuItem>
+                    <MenuItem value="fruteria">Frutería / Verdulería</MenuItem>
+                    <MenuItem value="ferreteria">Ferretería</MenuItem>
+                    <MenuItem value="farmacia">Farmacia</MenuItem>
+                    <MenuItem value="restaurante">Restaurante / Bar</MenuItem>
+                    <MenuItem value="ropa">Indumentaria / Ropa</MenuItem>
+                    <MenuItem value="electronica">Electrónica / Tecnología</MenuItem>
+                    <MenuItem value="servicio">Prestación de Servicios</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField label="Ciudad" value={form.ciudad}
                   onChange={e => setForm({...form, ciudad: e.target.value})} />
                 <TextField label="Teléfono" value={form.telefono}
@@ -172,102 +247,164 @@ export default function ConfiguracionPage() {
             </CardContent>
           </Card>
 
-          <Card sx={{ mt: 3 }}>
-            <CardContent>
-              <Typography variant="h6" mb={2}>Timbrado SET</Typography>
-              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
-                <FormControl>
-                  <InputLabel>Timbrado activo</InputLabel>
-                  <Select value={form.timbrado_activo}
-                    onChange={e => setForm({...form, timbrado_activo: e.target.value})} label="Timbrado activo">
-                    <MenuItem value="">Sin timbrado</MenuItem>
-                    {timbrados.map((t: any) => (
-                      <MenuItem key={t.id} value={t.id}>
-                        {t.numero} — vence {new Date(t.fecha_fin).toLocaleDateString('es-PY')}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              <TextField label="Texto pie de factura" multiline rows={2} fullWidth sx={{ mt: 2 }}
-                value={form.pie_factura}
-                onChange={e => setForm({...form, pie_factura: e.target.value})} />
-            </CardContent>
-          </Card>
+          <Accordion sx={{ mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" display="flex" alignItems="center" color={form.sifen_habilitado ? 'success.main' : 'text.primary'}>
+                <SecurityIcon sx={{ mr: 1 }} /> 
+                Facturación Electrónica (SIFEN)
+                {form.sifen_habilitado && <Chip label="ACTIVO" size="small" color="success" sx={{ ml: 2, height: 20 }} />}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                La integración SIFEN permite emitir Documentos Electrónicos (KUDE) aprobados por la SET. Necesitarás el certificado digital de la empresa (.p12).
+              </Alert>
+              
+              <FormControlLabel
+                control={<Switch checked={form.sifen_habilitado} onChange={e => setForm({...form, sifen_habilitado: e.target.checked})} />}
+                label={<Typography fontWeight="bold">Habilitar emisión electrónica al SIFEN</Typography>}
+                sx={{ mb: 3 }}
+              />
 
-          <Card sx={{ mt: 3 }}>
+              <Collapse in={form.sifen_habilitado}>
+                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2} mb={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Ambiente SIFEN</InputLabel>
+                    <Select value={form.sifen_ambiente} label="Ambiente SIFEN"
+                      onChange={e => setForm({...form, sifen_ambiente: e.target.value})}>
+                      <MenuItem value="homologacion">Homologación (Pruebas - Sin valor legal)</MenuItem>
+                      <MenuItem value="produccion">Producción (Operación Real)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+                
+                <Divider sx={{ my: 2 }} />
+                
+                <Typography variant="subtitle2" mb={2}>Certificado Digital (Firma Electrónica)</Typography>
+                
+                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2}>
+                  <Box>
+                    <Button variant="outlined" component="label" fullWidth sx={{ height: '100%', minHeight: 40, justifyContent: 'flex-start' }}>
+                      {form.certificado_sifen ? form.certificado_sifen.name : empresaConfig?.certificado_sifen_nombre || 'Seleccionar certificado (.p12)'}
+                      <input type="file" hidden accept=".p12,.pfx"
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (file) setForm({...form, certificado_sifen: file})
+                        }} />
+                    </Button>
+                  </Box>
+                  <TextField 
+                    label="Contraseña del Certificado" 
+                    type="password"
+                    placeholder={empresaConfig?.certificado_sifen_url ? '****** (ya configurada)' : ''}
+                    value={form.clave_certificado_sifen}
+                    onChange={e => setForm({...form, clave_certificado_sifen: e.target.value})} 
+                    fullWidth 
+                  />
+                </Box>
+              </Collapse>
+            </AccordionDetails>
+          </Accordion>
+
+          <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={2}>
-                <Typography variant="h6">Timbrados registrados</Typography>
-                <Button size="small" variant="contained" startIcon={<AddIcon />}
-                  onClick={() => openTimbradoDialog()}>
-                  Nuevo
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+                <Typography variant="h6">Timbrados</Typography>
+                <Button
+                  size="small" variant="contained" startIcon={<AddIcon />}
+                  onClick={() => {
+                    if (timbradosTab === 0) { setTimbradoTipo('factura'); openTimbradoDialog() }
+                    else openTimbradoDialogAF()
+                  }}
+                >
+                  {timbradosTab === 0 ? 'Nuevo Timbrado Factura' : 'Nuevo Timbrado Autofactura'}
                 </Button>
               </Box>
-              {timbrados.length === 0 ? (
-                <Typography color="text.secondary" variant="body2">
-                  No hay timbrados registrados. Creá uno para empezar a facturar.
-                </Typography>
-              ) : (
-                <TableContainer sx={{ overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Nº Timbrado</TableCell>
-                        <TableCell>Vigencia</TableCell>
-                        <TableCell>Rango</TableCell>
-                        <TableCell>Usados</TableCell>
-                        <TableCell align="center">Estado</TableCell>
-                        <TableCell align="right">Acciones</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {timbrados.map((t: any) => (
-                        <TableRow key={t.id} hover>
-                          <TableCell sx={{ fontWeight: 600 }}>{t.numero}</TableCell>
-                          <TableCell>
-                            {new Date(t.fecha_inicio).toLocaleDateString('es-PY')}
-                            {' — '}
-                            {new Date(t.fecha_fin).toLocaleDateString('es-PY')}
-                          </TableCell>
-                          <TableCell>{t.rango_inicio} — {t.rango_fin}</TableCell>
-                          <TableCell>{t.numero_actual}</TableCell>
-                          <TableCell align="center">
-                            <Chip size="small"
-                              label={t.vigente ? 'Vigente' : t.activo ? 'Inactivo' : 'Vencido'}
-                              color={t.vigente ? 'success' : 'default'}
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <IconButton size="small" onClick={() => openTimbradoDialog(t)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="error" onClick={() => handleEliminarTimbrado(t.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+
+              <Tabs value={timbradosTab} onChange={(_, v) => setTimbradosTab(v)} sx={{ mb: 2 }}>
+                <Tab label="Facturas" />
+                <Tab label={<Box display="flex" alignItems="center" gap={0.5}><ReceiptLongIcon fontSize="small" />Autofacturas</Box>} />
+              </Tabs>
+
+              {timbradosTab === 0 && (
+                timbrados.length === 0 ? (
+                  <Alert severity="warning">No hay timbrados de factura. Creá uno para emitir facturas legales.</Alert>
+                ) : (
+                  <TimbradoTable rows={timbrados} onEdit={(t) => { setTimbradoTipo('factura'); openTimbradoDialog(t) }} onDelete={(id) => handleEliminarTimbrado(id, 'factura')} />
+                )
+              )}
+
+              {timbradosTab === 1 && (
+                timbradosAF.length === 0 ? (
+                  <Alert severity="warning">No hay timbrados de autofactura. Creá uno para emitir autofacturas.</Alert>
+                ) : (
+                  <TimbradoTable rows={timbradosAF} onEdit={(t) => openTimbradoDialogAF(t)} onDelete={(id) => handleEliminarTimbrado(id, 'autofactura')} />
+                )
               )}
             </CardContent>
           </Card>
         </Grid2>
 
         <Grid2 size={{ xs: 12, md: 4 }}>
-          <Card>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" mb={2}>Logo</Typography>
+              <Typography variant="h6" mb={2}>Identidad Visual</Typography>
+              
+              <Box mb={2} textAlign="center" p={2} sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                 {(form.logo || empresaConfig?.logo_url) ? (
+                    <Box 
+                      component="img" 
+                      src={form.logo ? URL.createObjectURL(form.logo) : empresaConfig?.logo_url} 
+                      sx={{ maxHeight: 120, maxWidth: '100%', objectFit: 'contain' }}
+                    />
+                 ) : (
+                    <Typography color="text.secondary" variant="body2" py={3}>Sin logo configurado</Typography>
+                 )}
+              </Box>
+
               <Button variant="outlined" component="label" fullWidth>
-                {form.logo ? form.logo.name : 'Seleccionar archivo'}
+                {form.logo ? 'Cambiar imagen...' : 'Seleccionar logo...'}
                 <input type="file" hidden accept="image/*"
                   onChange={e => {
                     const file = e.target.files?.[0]
                     if (file) setForm({...form, logo: file})
                   }} />
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" mb={2} display="flex" alignItems="center">
+                <PrintIcon sx={{ mr: 1 }} color="primary" /> Preferencias de Impresión
+              </Typography>
+              
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel>Formato por defecto</InputLabel>
+                <Select value={form.formato_impresion} label="Formato por defecto"
+                  onChange={e => setForm({...form, formato_impresion: e.target.value})}>
+                  <MenuItem value="a4">A4 (Impresora Estándar)</MenuItem>
+                  <MenuItem value="ticket80">Ticket 80mm (Térmica)</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel>Timbrado para facturación (Defecto)</InputLabel>
+                <Select value={form.timbrado_activo}
+                  onChange={e => setForm({...form, timbrado_activo: e.target.value})} label="Timbrado para facturación (Defecto)">
+                  <MenuItem value="">-- Ninguno (No requiere) --</MenuItem>
+                  {timbrados.filter((t: any) => t.vigente).map((t: any) => (
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.numero} (Activo)
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField label="Texto al pie de la factura" multiline rows={3} fullWidth
+                value={form.pie_factura}
+                placeholder="¡Gracias por su preferencia!"
+                onChange={e => setForm({...form, pie_factura: e.target.value})} />
             </CardContent>
           </Card>
         </Grid2>
@@ -307,7 +444,7 @@ export default function ConfiguracionPage() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack('')}>
+      <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack('')}>
         <Alert severity={snack.includes('Error') ? 'error' : 'success'} onClose={() => setSnack('')}>
           {snack}
         </Alert>

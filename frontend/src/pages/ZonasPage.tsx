@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -9,23 +9,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import MapIcon from '@mui/icons-material/Map'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useZonas, useCrearZona, useActualizarZona, useEliminarZona } from '../hooks/useApi'
 
 export default function ZonasPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useZonas()
+  const crearZona = useCrearZona()
+  const actualizarZona = useActualizarZona()
+  const eliminarZona = useEliminarZona()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', activo: true })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/logistica/zonas/').then(r => setItems(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -35,19 +31,17 @@ export default function ZonasPage() {
 
   const handleSave = async () => {
     if (editItem) {
-      await api.patch(`/logistica/zonas/${editItem.id}/`, form)
+      await actualizarZona.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post('/logistica/zonas/', form)
+      await crearZona.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Zona actualizada' : 'Zona creada')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/logistica/zonas/${id}/`)
+    await eliminarZona.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Zona eliminada')
   }
 
@@ -63,7 +57,7 @@ export default function ZonasPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay zonas aún" action={{ label: 'Crear zona', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

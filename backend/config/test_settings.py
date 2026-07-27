@@ -22,6 +22,13 @@ INSTALLED_APPS = [
     'apps.common',
     'apps.facturacion',
     'apps.logistica',
+    'apps.stock',
+    'apps.descuentos',
+    'apps.sucursales',
+    'apps.vendedores',
+    'apps.caja',
+    'apps.compras',
+    'apps.presupuestos',
     # 'apps.sifen',
 ]
 

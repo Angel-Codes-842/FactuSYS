@@ -14,11 +14,17 @@ import QrCodeIcon from '@mui/icons-material/QrCode'
 import JsBarcode from 'jsbarcode'
 import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
+import { useProductos, useCategorias, useClientes, useMarcas, useCrearProducto, useActualizarProducto, useCrearPrecioCliente, useActualizarPrecioCliente, useComponentes, useCrearComponente, useActualizarComponente, usePreciosCliente } from '../hooks/useApi'
 
 export default function ProductosPage() {
-  const [productos, setProductos] = useState<any[]>([])
-  const [categorias, setCategorias] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: productos, isLoading } = useProductos()
+  const { data: categorias } = useCategorias()
+  const { data: clientes } = useClientes()
+  const { data: marcas } = useMarcas()
+  const crearProducto = useCrearProducto()
+  const actualizarProducto = useActualizarProducto()
+  const crearPrecio = useCrearPrecioCliente()
+  const actualizarPrecio = useActualizarPrecioCliente()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState<any>({
@@ -30,11 +36,9 @@ export default function ProductosPage() {
     cantidad_stock: 0, iva_incluido: true, activo: true,
   })
   const [snack, setSnack] = useState('')
-  const [clientes, setClientes] = useState<any[]>([])
   const [preciosOpen, setPreciosOpen] = useState(false)
   const [preciosProducto, setPreciosProducto] = useState<any>(null)
   const [precios, setPrecios] = useState<any[]>([])
-  const [marcas, setMarcas] = useState<any[]>([])
   const [componentesOpen, setComponentesOpen] = useState(false)
   const [componentesProducto, setComponentesProducto] = useState<any>(null)
   const [componentes, setComponentes] = useState<any[]>([])
@@ -47,22 +51,6 @@ export default function ProductosPage() {
     setBarcodeProduct(p)
     setBarcodeOpen(true)
   }
-
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/productos/productos/'),
-      api.get('/productos/categorias/'),
-      api.get('/clientes/clientes/'),
-      api.get('/productos/marcas/'),
-    ]).then(([r1, r2, r3, r4]) => {
-      setProductos(r1.data.results || r1.data)
-      setCategorias(r2.data.results || r2.data)
-      setClientes(r3.data.results || r3.data)
-      setMarcas(r4.data.results || r4.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   useEffect(() => {
     if (barcodeOpen && barcodeProduct && canvasRef.current) {
@@ -157,16 +145,14 @@ export default function ProductosPage() {
 
   const handleSave = async () => {
     try {
-      const url = '/productos/productos/'
       const payload = { ...form }
       if (!payload.categoria) payload.categoria = null
       if (editItem) {
-        await api.patch(`${url}${editItem.id}/`, payload)
+        await actualizarProducto.mutateAsync({ id: editItem.id, data: payload })
       } else {
-        await api.post(url, payload)
+        await crearProducto.mutateAsync(payload)
       }
       setOpen(false)
-      load()
       setSnack(editItem ? 'Producto actualizado' : 'Producto creado')
     } catch {
       setSnack('Error al guardar producto')
@@ -185,7 +171,7 @@ export default function ProductosPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : productos.length === 0 ? (
+      {isLoading ? <LoadingState /> : productos.length === 0 ? (
         <EmptyState message="No hay productos registrados" action={{ label: 'Crear producto', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

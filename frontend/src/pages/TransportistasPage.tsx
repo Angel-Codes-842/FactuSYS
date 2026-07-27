@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -9,23 +9,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useTransportistas, useCrearTransportista, useActualizarTransportista, useEliminarTransportista } from '../hooks/useApi'
 
 export default function TransportistasPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useTransportistas()
+  const crearTransportista = useCrearTransportista()
+  const actualizarTransportista = useActualizarTransportista()
+  const eliminarTransportista = useEliminarTransportista()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState({ nombre: '', telefono: '', vehiculo: '', activo: true })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    api.get('/logistica/transportistas/').then(r => setItems(r.data.results || r.data)).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -35,19 +31,17 @@ export default function TransportistasPage() {
 
   const handleSave = async () => {
     if (editItem) {
-      await api.patch(`/logistica/transportistas/${editItem.id}/`, form)
+      await actualizarTransportista.mutateAsync({ id: editItem.id, data: form })
     } else {
-      await api.post('/logistica/transportistas/', form)
+      await crearTransportista.mutateAsync(form)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Transportista actualizado' : 'Transportista creado')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/logistica/transportistas/${id}/`)
+    await eliminarTransportista.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Transportista eliminado')
   }
 
@@ -63,7 +57,7 @@ export default function TransportistasPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay transportistas aún" action={{ label: 'Crear transportista', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

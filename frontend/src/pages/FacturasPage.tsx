@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
@@ -18,6 +18,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import DeleteIcon from '@mui/icons-material/Delete'
 import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { useFacturas, useClientes, useProductos, useAnularFactura, useCrearNotaCreditoDebito } from '../hooks/useApi'
 
 const estadoColor: Record<string, any> = {
   pendiente: 'warning', pagada: 'success', anulada: 'error', vencida: 'error', emitido: 'default',
@@ -25,10 +26,11 @@ const estadoColor: Record<string, any> = {
 
 export default function FacturasPage() {
   const navigate = useNavigate()
-  const [facturas, setFacturas] = useState<any[]>([])
-  const [clientes, setClientes] = useState<any[]>([])
-  const [productos, setProductos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: facturas, isLoading } = useFacturas()
+  const { data: clientes } = useClientes()
+  const { data: productos } = useProductos()
+  const anularFactura = useAnularFactura()
+  const crearNota = useCrearNotaCreditoDebito()
   const [search, setSearch] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
@@ -47,24 +49,11 @@ export default function FacturasPage() {
     return matchSearch && matchEstado && matchTipo
   }), [facturas, search, filtroEstado, filtroTipo])
 
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/facturacion/facturas/'),
-      api.get('/clientes/clientes/'),
-      api.get('/productos/productos/'),
-    ]).then(([r1, r2, r3]) => {
-      setFacturas(r1.data.results || r1.data)
-      setClientes(r2.data.results || r2.data)
-      setProductos(r3.data.results || r3.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
+
 
   const handleAnular = async (id: number) => {
-    await api.post(`/facturacion/facturas/${id}/anular/`)
+    await anularFactura.mutateAsync(id)
     setAnularTarget(null)
-    load()
     setSnack('Factura anulada')
   }
 
@@ -74,19 +63,21 @@ export default function FacturasPage() {
       return
     }
     try {
-      await api.post(`/facturacion/facturas/${notaTarget.id}/crear-nota/`, {
-        tipo_nota: notaForm.tipo_nota,
-        motivo_nota: notaForm.motivo,
-        detalles: notaForm.detalles.map(d => ({
-          producto: d.producto,
-          cantidad: d.cantidad,
-          precio_unitario: d.precio_unitario,
-          iva_incluido: true,
-        })),
+      await crearNota.mutateAsync({
+        id: notaTarget.id,
+        data: {
+          tipo_nota: notaForm.tipo_nota,
+          motivo_nota: notaForm.motivo,
+          detalles: notaForm.detalles.map(d => ({
+            producto: d.producto,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario,
+            iva_incluido: true,
+          })),
+        },
       })
       setNotaTarget(null)
       setNotaForm({ tipo_nota: 'credito', motivo: '', detalles: [] })
-      load()
       setSnack('Nota creada exitosamente')
     } catch {
       setSnack('Error al crear nota')
@@ -157,7 +148,7 @@ export default function FacturasPage() {
         </FormControl>
       </Box>
 
-      {loading ? <LoadingState /> : facturas.length === 0 ? (
+      {isLoading ? <LoadingState /> : facturas.length === 0 ? (
         <EmptyState message="No hay facturas aún" />
       ) : filtered.length === 0 ? (
         <EmptyState message="No hay resultados para la búsqueda" />

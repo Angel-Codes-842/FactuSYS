@@ -30,6 +30,26 @@ class ProductoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nombre', 'codigo', 'precio_venta', 'creado']
     filterset_fields = ['categoria', 'activo', 'iva_incluido']
 
+    def perform_update(self, serializer):
+        from apps.common.models import AuditLog
+        import json
+        old_instance = self.get_object()
+        new_instance = serializer.save()
+        cambios = {}
+        if old_instance.precio_venta != new_instance.precio_venta:
+            cambios['precio_venta'] = {'old': float(old_instance.precio_venta), 'new': float(new_instance.precio_venta)}
+        if old_instance.cantidad_stock != new_instance.cantidad_stock:
+            cambios['stock'] = {'old': float(old_instance.cantidad_stock), 'new': float(new_instance.cantidad_stock)}
+        
+        if cambios:
+            AuditLog.objects.create(
+                usuario_nombre=self.request.user.username,
+                accion='MODIFICAR_PRODUCTO',
+                modelo='Producto',
+                registro_id=new_instance.codigo,
+                detalles=json.dumps(cambios)
+            )
+
     @action(detail=True, methods=['get'])
     def precio_cliente(self, request, pk=None):
         producto = self.get_object()

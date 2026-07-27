@@ -43,19 +43,22 @@ class Caja(models.Model):
 
     @property
     def ventas_total(self):
+        from django.db.models import Sum, Q
         from apps.facturacion.models import Factura
-        base = Factura.objects.filter(anulada=False).exclude(tipo='ticket')
+        qs = Factura.objects.filter(anulada=False).exclude(tipo='ticket')
         if self.sucursal:
-            base = base.filter(sucursal=self.sucursal)
+            qs = qs.filter(sucursal=self.sucursal)
         if self.fecha_cierre:
-            base = base.filter(
+            qs = qs.filter(
                 fecha_emision__gte=self.fecha_apertura,
                 fecha_emision__lte=self.fecha_cierre
             )
         else:
-            base = base.filter(fecha_emision__gte=self.fecha_apertura)
-        base = base.prefetch_related('pagos', 'cuotas')
-        return sum(f.total for f in base if f.estado in ('pagada', 'pendiente'))
+            qs = qs.filter(fecha_emision__gte=self.fecha_apertura)
+        qs = qs.filter(
+            Q(estado='pagada') | Q(estado='pendiente')
+        )
+        return qs.aggregate(total=Sum('total'))['total'] or 0
 
     @property
     def gastos_total(self):

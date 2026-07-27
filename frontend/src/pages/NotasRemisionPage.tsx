@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
@@ -11,9 +11,9 @@ import SendIcon from '@mui/icons-material/Send'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
-import api from '../services/api'
 import { LoadingState, EmptyState } from '../components/SharedComponents'
 import type { NotaRemision, Transportista, Zona } from '../types/logistica'
+import { useNotasRemision, useTransportistas, useZonas, useFacturas, useCrearNotaRemision, useActualizarNotaRemision, useActualizarParcialNotaRemision, useMarcarEntregado, useRechazarNota } from '../hooks/useApi'
 
 const estadoColor: Record<string, any> = {
   pendiente: 'warning',
@@ -30,11 +30,15 @@ const estadoLabel: Record<string, string> = {
 }
 
 export default function NotasRemisionPage() {
-  const [items, setItems] = useState<NotaRemision[]>([])
-  const [transportistas, setTransportistas] = useState<Transportista[]>([])
-  const [zonas, setZonas] = useState<Zona[]>([])
-  const [facturas, setFacturas] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useNotasRemision()
+  const { data: transportistas } = useTransportistas()
+  const { data: zonas } = useZonas()
+  const { data: facturas } = useFacturas()
+  const crearNota = useCrearNotaRemision()
+  const actualizarNota = useActualizarNotaRemision()
+  const actualizarParcial = useActualizarParcialNotaRemision()
+  const marcarEntregado = useMarcarEntregado()
+  const rechazarNota = useRechazarNota()
   const [search, setSearch] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [fechaDesde, setFechaDesde] = useState('')
@@ -52,11 +56,9 @@ export default function NotasRemisionPage() {
   const [observacionesEntregar, setObservacionesEntregar] = useState('')
   const [rechazarTarget, setRechazarTarget] = useState<NotaRemision | null>(null)
   const [motivoRechazar, setMotivoRechazar] = useState('')
-  const [entregarLoading, setEntregarLoading] = useState(false)
-  const [rechazarLoading, setRechazarLoading] = useState(false)
   const [snack, setSnack] = useState('')
 
-  const filtered = useMemo(() => items.filter(n => {
+  const filtered = useMemo(() => (items || []).filter((n: any) => {
     const matchSearch = !search ||
       n.numero.toLowerCase().includes(search.toLowerCase())
     const matchEstado = !filtroEstado || n.estado === filtroEstado
@@ -65,29 +67,13 @@ export default function NotasRemisionPage() {
     return matchSearch && matchEstado && matchFechaDesde && matchFechaHasta
   }), [items, search, filtroEstado, fechaDesde, fechaHasta])
 
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/logistica/notas-remision/'),
-      api.get('/logistica/transportistas/'),
-      api.get('/logistica/zonas/'),
-      api.get('/facturacion/facturas/'),
-    ]).then(([r1, r2, r3, r4]) => {
-      setItems(r1.data.results || r1.data)
-      setTransportistas(r2.data.results || r2.data)
-      setZonas(r3.data.results || r3.data)
-      setFacturas(r4.data.results || r4.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
-
   const resetForm = () => {
     setForm({ factura: null, transportista: null, zona: null, direccion_entrega: '', observaciones: '' })
     setEditingItem(null)
   }
 
   const handleCreate = async () => {
-    await api.post('/logistica/notas-remision/', {
+    await crearNota.mutateAsync({
       factura: form.factura?.id || form.factura,
       transportista: form.transportista?.id || form.transportista,
       zona: form.zona?.id || form.zona,
@@ -96,66 +82,57 @@ export default function NotasRemisionPage() {
     })
     setOpen(false)
     resetForm()
-    load()
     setSnack('Nota de remisión creada')
   }
 
   const handleEdit = async () => {
     if (!editingItem) return
-    await api.put(`/logistica/notas-remision/${editingItem.id}/`, {
-      transportista: form.transportista?.id || form.transportista,
-      zona: form.zona?.id || form.zona,
-      direccion_entrega: form.direccion_entrega,
-      observaciones: form.observaciones,
+    await actualizarNota.mutateAsync({
+      id: editingItem.id,
+      data: {
+        transportista: form.transportista?.id || form.transportista,
+        zona: form.zona?.id || form.zona,
+        direccion_entrega: form.direccion_entrega,
+        observaciones: form.observaciones,
+      },
     })
     setOpen(false)
     resetForm()
-    load()
     setSnack('Nota de remisión actualizada')
   }
 
   const handleEnviar = async (item: NotaRemision) => {
-    await api.patch(`/logistica/notas-remision/${item.id}/`, {
-      estado: 'en_transito',
-      fecha_envio: new Date().toISOString().split('T')[0],
+    await actualizarParcial.mutateAsync({
+      id: item.id,
+      data: {
+        estado: 'en_transito',
+        fecha_envio: new Date().toISOString().split('T')[0],
+      },
     })
-    load()
     setSnack('Nota marcada como enviada')
   }
 
   const handleEntregar = async () => {
     if (!entregarTarget) return
-    setEntregarLoading(true)
     try {
-      await api.post(`/logistica/notas-remision/${entregarTarget.id}/marcar_entregado/`, {
-        observaciones: observacionesEntregar || undefined,
-      })
+      await marcarEntregado.mutateAsync(entregarTarget.id)
       setEntregarTarget(null)
       setObservacionesEntregar('')
-      load()
       setSnack('Nota marcada como entregada')
     } catch {
       setSnack('Error al marcar como entregada')
-    } finally {
-      setEntregarLoading(false)
     }
   }
 
   const handleRechazar = async () => {
     if (!rechazarTarget || !motivoRechazar.trim()) return
-    setRechazarLoading(true)
     try {
-      await api.post(`/logistica/notas-remision/${rechazarTarget.id}/rechazar/`, {
-        motivo: motivoRechazar,
-      })
+      await rechazarNota.mutateAsync(rechazarTarget.id)
       setRechazarTarget(null)
       setMotivoRechazar('')
-      load()
       setSnack('Nota rechazada')
     } catch {
       setSnack('Error al rechazar nota')
-    } finally {
-      setRechazarLoading(false)
     }
   }
 
@@ -202,7 +179,7 @@ export default function NotasRemisionPage() {
           onChange={e => setFechaHasta(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay notas de remisión" action={{ label: 'Nueva nota', onClick: () => { resetForm(); setOpen(true) } }} />
       ) : filtered.length === 0 ? (
         <EmptyState message="No hay resultados para la búsqueda" />
@@ -316,8 +293,8 @@ export default function NotasRemisionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEntregarTarget(null)} color="inherit">Cancelar</Button>
-          <Button variant="contained" color="success" onClick={handleEntregar} disabled={entregarLoading}>
-            {entregarLoading ? 'Procesando...' : 'Confirmar Entrega'}
+          <Button variant="contained" color="success" onClick={handleEntregar} disabled={marcarEntregado.isPending}>
+            {marcarEntregado.isPending ? 'Procesando...' : 'Confirmar Entrega'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -334,8 +311,8 @@ export default function NotasRemisionPage() {
         <DialogActions>
           <Button onClick={() => setRechazarTarget(null)} color="inherit">Cancelar</Button>
           <Button variant="contained" color="error" onClick={handleRechazar}
-            disabled={rechazarLoading || !motivoRechazar.trim()}>
-            {rechazarLoading ? 'Procesando...' : 'Confirmar Rechazo'}
+            disabled={rechazarNota.isPending || !motivoRechazar.trim()}>
+            {rechazarNota.isPending ? 'Procesando...' : 'Confirmar Rechazo'}
           </Button>
         </DialogActions>
       </Dialog>

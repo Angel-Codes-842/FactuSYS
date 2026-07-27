@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Dialog, DialogTitle, DialogContent,
@@ -9,13 +9,15 @@ import AddIcon from '@mui/icons-material/Add'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
+import { usePresupuestos, useClientes, useProductos, useVendedores, useCrearPresupuesto, useConvertirPresupuesto } from '../hooks/useApi'
 
 export default function PresupuestosPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [clientes, setClientes] = useState<any[]>([])
-  const [productos, setProductos] = useState<any[]>([])
-  const [vendedores, setVendedores] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = usePresupuestos()
+  const { data: clientes } = useClientes()
+  const { data: productos } = useProductos()
+  const { data: vendedores } = useVendedores()
+  const crearPresupuesto = useCrearPresupuesto()
+  const convertirPresupuesto = useConvertirPresupuesto()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<any>({
     cliente: '', valido_hasta: '', notas: '', vendedor: null,
@@ -33,31 +35,13 @@ export default function PresupuestosPage() {
     }).catch(() => {})
   }
 
-  const loadData = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/presupuestos/presupuestos/'),
-      api.get('/clientes/clientes/'),
-      api.get('/productos/productos/'),
-      api.get('/vendedores/vendedores/'),
-    ]).then(([r1, r2, r3, r4]) => {
-      setItems(r1.data.results || r1.data)
-      setClientes(r2.data.results || r2.data)
-      setProductos(r3.data.results || r3.data)
-      setVendedores(r4.data.results || r4.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }
-
-  useEffect(loadData, [])
-
   const handleCreate = async () => {
     try {
       const payload = { ...form }
       if (!payload.cliente) payload.cliente = null
-      await api.post('/presupuestos/presupuestos/', payload)
+      await crearPresupuesto.mutateAsync(payload)
       setOpen(false)
       setForm({ cliente: '', valido_hasta: '', notas: '', vendedor: null, detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }] })
-      loadData()
       setSnack('Presupuesto creado')
     } catch (err: any) {
       setSnack(err.response?.data?.detail || 'Error al crear presupuesto')
@@ -65,9 +49,8 @@ export default function PresupuestosPage() {
   }
 
   const handleConvertir = async (id: number) => {
-    await api.post(`/presupuestos/presupuestos/${id}/convertir/`)
+    await convertirPresupuesto.mutateAsync(id)
     setConfirmConvertir(null)
-    loadData()
     setSnack('Presupuesto convertido en venta')
   }
 
@@ -81,7 +64,7 @@ export default function PresupuestosPage() {
     }
   }
 
-  if (loading) return <LoadingState height={400} />
+  if (isLoading) return <LoadingState height={400} />
 
   return (
     <Box>

@@ -1,23 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, IconButton, Snackbar, Alert, Chip,
   Select, MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel,
-  InputAdornment, Grid, Autocomplete,
+  InputAdornment, Grid,
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import BadgeIcon from '@mui/icons-material/Badge'
-import api from '../services/api'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
 import { Vendedor, Puesto } from '../types'
+import { useVendedores, usePuestos, useCrearVendedor, useActualizarVendedor, useEliminarVendedor } from '../hooks/useApi'
 
 export default function VendedoresPage() {
-  const [items, setItems] = useState<Vendedor[]>([])
-  const [puestos, setPuestos] = useState<Puesto[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: items, isLoading } = useVendedores()
+  const { data: puestos } = usePuestos()
+  const crearVendedor = useCrearVendedor()
+  const actualizarVendedor = useActualizarVendedor()
+  const eliminarVendedor = useEliminarVendedor()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [form, setForm] = useState<any>({
@@ -27,18 +29,6 @@ export default function VendedoresPage() {
   })
   const [snack, setSnack] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
-
-  const load = () => {
-    setLoading(true)
-    Promise.all([
-      api.get('/vendedores/vendedores/'),
-      api.get('/vendedores/puestos/'),
-    ]).then(([r1, r2]) => {
-      setItems(r1.data.results || r1.data)
-      setPuestos(r2.data.results || r2.data)
-    }).finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
@@ -76,19 +66,17 @@ export default function VendedoresPage() {
       comision_venta: parseFloat(form.comision_venta) || 0,
     }
     if (editItem) {
-      await api.patch(`/vendedores/vendedores/${editItem.id}/`, data)
+      await actualizarVendedor.mutateAsync({ id: editItem.id, data })
     } else {
-      await api.post('/vendedores/vendedores/', data)
+      await crearVendedor.mutateAsync(data)
     }
     setOpen(false)
-    load()
     setSnack(editItem ? 'Vendedor actualizado' : 'Vendedor creado')
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/vendedores/vendedores/${id}/`)
+    await eliminarVendedor.mutateAsync(id)
     setConfirmDelete(null)
-    load()
     setSnack('Vendedor eliminado')
   }
 
@@ -104,7 +92,7 @@ export default function VendedoresPage() {
         </Button>
       </Box>
 
-      {loading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : items.length === 0 ? (
         <EmptyState message="No hay vendedores aún" action={{ label: 'Crear vendedor', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

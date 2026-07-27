@@ -16,7 +16,7 @@ class Factura(models.Model):
         ('debito', 'Nota de Débito'),
     ]
     numero = models.CharField('Nº Factura', max_length=20, unique=True, editable=False)
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='contado')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='contado', db_index=True)
     tipo_nota = models.CharField(
         'Tipo de nota', max_length=20, choices=TIPO_NOTA_CHOICES,
         null=True, blank=True,
@@ -35,7 +35,7 @@ class Factura(models.Model):
         'clientes.Cliente', on_delete=models.PROTECT,
         related_name='facturas', null=True, blank=True
     )
-    fecha_emision = models.DateTimeField(auto_now_add=True)
+    fecha_emision = models.DateTimeField(auto_now_add=True, db_index=True)
     fecha_vencimiento = models.DateField(null=True, blank=True)
     plazo_dias = models.PositiveIntegerField(
         'Plazo (días)', default=0,
@@ -49,7 +49,7 @@ class Factura(models.Model):
         'Cuotas fijas', default=True,
         help_text='Si está activo se generan cuotas automáticas. Si no, el cliente paga montos arbitrarios.',
     )
-    anulada = models.BooleanField(default=False)
+    anulada = models.BooleanField(default=False, db_index=True)
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name='facturas'
@@ -270,3 +270,79 @@ class Cuota(models.Model):
 
     def __str__(self):
         return f"Cuota {self.numero} - {self.factura.numero} - {self.get_estado_display()}"
+
+class TimbradoAutofactura(models.Model):
+    numero = models.CharField('Nº Timbrado', max_length=20, unique=True)
+    fecha_inicio = models.DateField('Fecha de inicio')
+    fecha_fin = models.DateField('Fecha de vencimiento')
+    rango_inicio = models.PositiveIntegerField('Inicio de rango')
+    rango_fin = models.PositiveIntegerField('Fin de rango')
+    numero_actual = models.PositiveIntegerField('Último número usado', default=0)
+    activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Timbrado de Autofactura'
+        verbose_name_plural = 'Timbrados de Autofacturas'
+        ordering = ['-fecha_fin']
+
+    def __str__(self):
+        return f"Timbrado Autofactura {self.numero}"
+
+    @property
+    def vigente(self):
+        from datetime import date
+        return (
+            self.activo
+            and self.fecha_inicio <= date.today() <= self.fecha_fin
+            and self.numero_actual < self.rango_fin
+        )
+
+    def asignar_numero(self):
+        if not self.vigente:
+            raise ValueError(f"Timbrado {self.numero} no vigente")
+        self.numero_actual += 1
+        self.save(update_fields=['numero_actual'])
+        return f"{self.numero}-{self.numero_actual:06d}"
+
+class Autofactura(models.Model):
+    numero = models.CharField('Nº Autofactura', max_length=20, unique=True, editable=False)
+    fecha_emision = models.DateField(auto_now_add=True, db_index=True)
+    proveedor_nombre = models.CharField('Nombre del Proveedor', max_length=255)
+    proveedor_ci = models.CharField('CI del Proveedor', max_length=20)
+    proveedor_direccion = models.CharField('Dirección', max_length=255, blank=True)
+    
+    timbrado = models.ForeignKey(TimbradoAutofactura, on_delete=models.PROTECT, related_name='autofacturas')
+    timbrado_numero = models.CharField('Nº Timbrado', max_length=20, editable=False)
+    
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    retencion = models.DecimalField('Retención (Monto)', max_digits=14, decimal_places=2, default=0)
+    total = models.DecimalField('Total a Pagar', max_digits=14, decimal_places=2, default=0)
+    
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    creado = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Autofactura'
+        verbose_name_plural = 'Autofacturas'
+        ordering = ['-fecha_emision']
+        
+    def __str__(self):
+        return f"Autofactura {self.numero} - {self.proveedor_nombre}"
+
+    def calcular_totales(self):
+        from decimal import Decimal
+        subtotal = sum(d.subtotal for d in self.detalles.all()).quantize(Decimal('1'))
+        self.subtotal = subtotal
+        self.total = (self.subtotal - self.retencion).quantize(Decimal('1'))
+        self.save()
+
+class DetalleAutofactura(models.Model):
+    autofactura = models.ForeignKey(Autofactura, on_delete=models.CASCADE, related_name='detalles')
+    concepto = models.CharField('Concepto', max_length=255)
+    cantidad = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))])
+    precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    @property
+    def subtotal(self):
+        return (self.cantidad * self.precio_unitario).quantize(Decimal('1'))
