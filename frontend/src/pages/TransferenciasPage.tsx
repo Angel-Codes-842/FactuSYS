@@ -47,7 +47,7 @@ export default function TransferenciasPage() {
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>Nueva Transferencia</Button>
       </Box>
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items ? <EmptyState message="No se pudieron cargar las transferencias" /> : items.length === 0 ? (
         <EmptyState message="No hay transferencias" action={{ label: 'Nueva transferencia', onClick: () => setOpen(true) }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

@@ -40,7 +40,7 @@ export default function FacturasPage() {
   const [notaTarget, setNotaTarget] = useState<any>(null)
   const [notaForm, setNotaForm] = useState({ tipo_nota: 'credito', motivo: '', detalles: [] as any[] })
 
-  const filtered = useMemo(() => facturas.filter(f => {
+  const filtered = useMemo(() => (facturas ?? []).filter(f => {
     const matchSearch = !search ||
       f.numero.toLowerCase().includes(search.toLowerCase()) ||
       (f.cliente_nombre || '').toLowerCase().includes(search.toLowerCase())
@@ -148,7 +148,7 @@ export default function FacturasPage() {
         </FormControl>
       </Box>
 
-      {isLoading ? <LoadingState /> : facturas.length === 0 ? (
+      {isLoading ? <LoadingState /> : !facturas ? <EmptyState message="No se pudieron cargar las facturas" /> : facturas.length === 0 ? (
         <EmptyState message="No hay facturas aún" />
       ) : filtered.length === 0 ? (
         <EmptyState message="No hay resultados para la búsqueda" />

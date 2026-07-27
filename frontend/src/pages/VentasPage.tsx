@@ -143,7 +143,7 @@ export default function VentasPage() {
   }), [productos, search, categoriaFilter])
 
   const getPrecioUnitarioForId = (productoId: number, cantidad: number) => {
-    const p = productos.find(x => x.id === productoId)
+    const p = (productos ?? []).find(x => x.id === productoId)
     if (!p) return 0
     const cant1 = Number(p.cant_mayorista1) || 0
     const cant2 = Number(p.cant_mayorista2) || 0
@@ -167,7 +167,7 @@ export default function VentasPage() {
     const numericVal = parseFloat(val)
     if (isNaN(numericVal) || numericVal < 0) return
 
-    const p = productos.find(x => x.id === id)
+    const p = (productos ?? []).find(x => x.id === id)
     if (p && p.controlar_stock) {
       const stockDisp = userSucursalId ? (stockSucursalMap[p.id] ?? 0) : (p.cantidad_stock ?? 0)
       if (numericVal > stockDisp) {
@@ -225,7 +225,7 @@ export default function VentasPage() {
         const step = (item.unidad_medida === 'kilo' || item.unidad_medida === 'litro') ? 0.1 : 1
         const nuevaCant = Math.max(0.001, Number((item.cantidad + delta * step).toFixed(3)))
 
-        const p = productos.find(x => x.id === id)
+        const p = (productos ?? []).find(x => x.id === id)
         if (p && p.controlar_stock) {
           const stockDisp = userSucursalId ? (stockSucursalMap[p.id] ?? 0) : (p.cantidad_stock ?? 0)
           if (nuevaCant > stockDisp) {
@@ -466,7 +466,7 @@ export default function VentasPage() {
                     <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={1} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                       <Box>
                         {(() => {
-                          const originalP = productos.find(x => x.id === item.producto_id)
+                          const originalP = (productos ?? []).find(x => x.id === item.producto_id)
                           const originalPrice = originalP ? Number(originalP.precio_venta) : 0
                           if (originalPrice > 0 && item.precio_unitario < originalPrice) {
                             return (

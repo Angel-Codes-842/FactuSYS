@@ -39,7 +39,7 @@ export default function PromocionesPage() {
       fecha_fin: item.fecha_fin ? item.fecha_fin.substring(0, 16) : '',
       activo: item.activo,
       productos: item.productos?.map((p: any) => ({
-        producto: productos.find(pr => pr.id === p.producto) || null,
+        producto: (productos ?? []).find(pr => pr.id === p.producto) || null,
         precio_promocional: String(p.precio_promocional),
       })) || [],
     } : { nombre: '', fecha_inicio: '', fecha_fin: '', activo: true, productos: [] })

@@ -92,7 +92,7 @@ export default function VendedoresPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items ? <EmptyState message="No se pudieron cargar los vendedores" /> : items.length === 0 ? (
         <EmptyState message="No hay vendedores aún" action={{ label: 'Crear vendedor', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>

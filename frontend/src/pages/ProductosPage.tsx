@@ -171,7 +171,7 @@ export default function ProductosPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : productos.length === 0 ? (
+      {isLoading ? <LoadingState /> : !productos ? <EmptyState message="No se pudieron cargar los productos" /> : productos.length === 0 ? (
         <EmptyState message="No hay productos registrados" action={{ label: 'Crear producto', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -250,7 +250,7 @@ export default function ProductosPage() {
           <Autocomplete
             options={marcas}
             getOptionLabel={(o: any) => o.nombre}
-            value={marcas.find((m: any) => m.id === form.marca) || null}
+            value={(marcas ?? []).find((m: any) => m.id === form.marca) || null}
             onChange={(_, v) => setForm({ ...form, marca: v?.id || null })}
             renderInput={(params) => <TextField {...params} label="Marca" size="small" margin="dense" fullWidth />}
           />
@@ -347,7 +347,7 @@ export default function ProductosPage() {
                       <Autocomplete
                         options={(productos ?? []).filter((p: any) => p.id !== componentesProducto?.id)}
                         getOptionLabel={(o: any) => `${o.codigo} - ${o.nombre}`}
-                        value={productos.find((p: any) => p.id === c.producto) || null}
+                        value={(productos ?? []).find((p: any) => p.id === c.producto) || null}
                         onChange={(_, v) => {
                           const list = [...componentes]
                           list[i].producto = v?.id || null

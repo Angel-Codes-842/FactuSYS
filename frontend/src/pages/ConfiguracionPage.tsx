@@ -327,7 +327,7 @@ export default function ConfiguracionPage() {
               </Tabs>
 
               {timbradosTab === 0 && (
-                timbrados.length === 0 ? (
+                !timbrados ? <Box textAlign="center" py={4}><CircularProgress /></Box> : timbrados.length === 0 ? (
                   <Alert severity="warning">No hay timbrados de factura. Creá uno para emitir facturas legales.</Alert>
                 ) : (
                   <TimbradoTable rows={timbrados} onEdit={(t) => { setTimbradoTipo('factura'); openTimbradoDialog(t) }} onDelete={(id) => handleEliminarTimbrado(id, 'factura')} />
@@ -335,7 +335,7 @@ export default function ConfiguracionPage() {
               )}
 
               {timbradosTab === 1 && (
-                timbradosAF.length === 0 ? (
+                !timbradosAF ? <Box textAlign="center" py={4}><CircularProgress /></Box> : timbradosAF.length === 0 ? (
                   <Alert severity="warning">No hay timbrados de autofactura. Creá uno para emitir autofacturas.</Alert>
                 ) : (
                   <TimbradoTable rows={timbradosAF} onEdit={(t) => openTimbradoDialogAF(t)} onDelete={(id) => handleEliminarTimbrado(id, 'autofactura')} />

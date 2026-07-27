@@ -84,7 +84,7 @@ export default function UsuariosPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : usuarios.length === 0 ? (
+      {isLoading ? <LoadingState /> : !usuarios ? <EmptyState message="No se pudieron cargar los usuarios" /> : usuarios.length === 0 ? (
         <EmptyState message="No hay usuarios registrados" />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
