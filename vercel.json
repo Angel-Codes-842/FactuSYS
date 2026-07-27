@@ -1,0 +1,9 @@
+{
+  "rootDirectory": "frontend",
+  "framework": "vite",
+  "buildCommand": "npm ci && vite build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
