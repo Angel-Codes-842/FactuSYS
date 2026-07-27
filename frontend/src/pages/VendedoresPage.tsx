@@ -110,7 +110,7 @@ export default function VendedoresPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(v => (
+              {(items ?? []).map(v => (
                 <TableRow key={v.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell>
                     <Typography fontWeight={600}>{v.nombre}</Typography>
@@ -161,7 +161,7 @@ export default function VendedoresPage() {
                 <Select value={form.puesto || ''} label="Puesto"
                   onChange={e => setForm({...form, puesto: e.target.value || null})} fullWidth>
                   <MenuItem value=""><em>Sin puesto</em></MenuItem>
-                  {puestos.map(p => <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>)}
+                  {(puestos ?? []).map(p => <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>

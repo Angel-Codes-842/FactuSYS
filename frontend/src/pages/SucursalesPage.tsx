@@ -54,7 +54,7 @@ export default function SucursalesPage() {
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>Nueva Sucursal</Button>
       </Box>
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay sucursales" action={{ label: 'Crear sucursal', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -69,7 +69,7 @@ export default function SucursalesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(c => (
+              {(items ?? []).map(c => (
                 <TableRow key={c.id} hover>
                   <TableCell><Typography fontWeight={600}>{c.nombre}</Typography></TableCell>
                   <TableCell>{c.direccion || '—'}</TableCell>

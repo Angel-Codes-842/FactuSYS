@@ -121,7 +121,7 @@ export default function CajaPage() {
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" mb={1.5}>Gastos del Día</Typography>
-              {gastos.length === 0 ? (
+              {!gastos || gastos.length === 0 ? (
                 <EmptyState message="Sin gastos registrados" action={{ label: 'Agregar gasto', onClick: () => setOpenGasto(true) }} />
               ) : (
                 <TableContainer sx={{ overflowX: 'auto' }}>
@@ -135,7 +135,7 @@ export default function CajaPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {gastos.map((g: any) => (
+                      {(gastos ?? []).map((g: any) => (
                         <TableRow key={g.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                           <TableCell><Typography fontWeight={500}>{g.descripcion}</Typography></TableCell>
                           <TableCell align="center"><Chip label={g.categoria} size="small" variant="outlined" /></TableCell>

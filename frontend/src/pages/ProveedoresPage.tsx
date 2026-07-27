@@ -55,7 +55,7 @@ export default function ProveedoresPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : proveedores.length === 0 ? (
+      {isLoading ? <LoadingState /> : !proveedores || proveedores.length === 0 ? (
         <EmptyState message="No hay proveedores registrados" action={{ label: 'Crear proveedor', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -72,7 +72,7 @@ export default function ProveedoresPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {proveedores.map((p: any) => (
+              {(proveedores ?? []).map((p: any) => (
                 <TableRow key={p.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{p.nombre}</Typography></TableCell>
                   <TableCell>{p.ruc || <Typography variant="body2" color="text.disabled" component="span">—</Typography>}</TableCell>

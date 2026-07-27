@@ -57,7 +57,7 @@ export default function ZonasPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay zonas aún" action={{ label: 'Crear zona', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -71,7 +71,7 @@ export default function ZonasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(item => (
+              {(items ?? []).map(item => (
                 <TableRow key={item.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{item.nombre}</Typography></TableCell>
                   <TableCell align="center">

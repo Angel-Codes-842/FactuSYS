@@ -103,7 +103,7 @@ export default function PromocionesPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay promociones aún" action={{ label: 'Crear promoción', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -120,7 +120,7 @@ export default function PromocionesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(c => (
+              {(items ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{c.nombre}</Typography></TableCell>
                   <TableCell>{formatDate(c.fecha_inicio)}</TableCell>

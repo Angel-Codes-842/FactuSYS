@@ -56,7 +56,7 @@ export default function CategoriasPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : categorias.length === 0 ? (
+      {isLoading ? <LoadingState /> : !categorias || categorias.length === 0 ? (
         <EmptyState message="No hay categorías aún" action={{ label: 'Crear categoría', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -69,7 +69,7 @@ export default function CategoriasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {categorias.map(c => (
+              {(categorias ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Typography fontWeight={600}>{c.nombre}</Typography></TableCell>
                   <TableCell>{c.descripcion || <Typography variant="body2" color="text.disabled">—</Typography>}</TableCell>

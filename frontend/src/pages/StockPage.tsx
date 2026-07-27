@@ -63,9 +63,9 @@ export default function StockPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtrados.length === 0 ? (
+            {!filtrados || filtrados.length === 0 ? (
               <TableRow><TableCell colSpan={4}><EmptyState message={search ? 'Sin resultados' : 'Sin productos registrados'} /></TableCell></TableRow>
-            ) : filtrados.map(p => (
+            ) : (filtrados ?? []).map(p => (
               <TableRow key={p.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                 <TableCell align="center"><Chip label={p.codigo} size="small" variant="outlined" /></TableCell>
                 <TableCell><Typography fontWeight={600}>{p.nombre}</Typography></TableCell>

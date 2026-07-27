@@ -84,7 +84,7 @@ export default function ProductosPage() {
     setPreciosProducto(producto)
     const r = await api.get(`/productos/precios-cliente/?producto=${producto.id}`)
     const existing: any[] = r.data.results || r.data
-    setPrecios(clientes.map(c => ({
+    setPrecios((clientes ?? []).map(c => ({
       cliente: c.id,
       cliente_nombre: c.nombre,
       precio: existing.find((p: any) => p.cliente === c.id)?.precio || '',
@@ -189,7 +189,7 @@ export default function ProductosPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {productos.map(p => (
+              {(productos ?? []).map(p => (
                 <TableRow key={p.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Chip label={p.codigo} size="small" variant="outlined" /></TableCell>
                   <TableCell><Typography fontWeight={600}>{p.nombre}</Typography></TableCell>
@@ -244,7 +244,7 @@ export default function ProductosPage() {
             <InputLabel>Categoría</InputLabel>
             <Select value={form.categoria || ''} onChange={e => setForm({...form, categoria: e.target.value})} fullWidth>
               <MenuItem value="">Sin categoría</MenuItem>
-              {categorias.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
+              {(categorias ?? []).map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
             </Select>
           </FormControl>
           <Autocomplete
@@ -345,7 +345,7 @@ export default function ProductosPage() {
                   <TableRow key={i}>
                     <TableCell>
                       <Autocomplete
-                        options={productos.filter((p: any) => p.id !== componentesProducto?.id)}
+                        options={(productos ?? []).filter((p: any) => p.id !== componentesProducto?.id)}
                         getOptionLabel={(o: any) => `${o.codigo} - ${o.nombre}`}
                         value={productos.find((p: any) => p.id === c.producto) || null}
                         onChange={(_, v) => {

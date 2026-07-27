@@ -23,7 +23,7 @@ export default function CajaHistorialPage() {
         Historial de Cajas
       </Typography>
 
-      {cajas.length === 0 ? (
+      {!cajas || cajas.length === 0 ? (
         <EmptyState message="No hay cajas registradas" />
       ) : (
         <TableContainer component={Card} sx={{ border: 0, overflowX: 'auto' }}>
@@ -42,7 +42,7 @@ export default function CajaHistorialPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {cajas.map(c => (
+              {(cajas ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(c.fecha_apertura).toLocaleString('es-PY')}</TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>

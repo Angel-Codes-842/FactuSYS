@@ -78,7 +78,7 @@ export default function PresupuestosPage() {
         </Button>
       </Box>
 
-      {items.length === 0 ? (
+      {!items || items.length === 0 ? (
         <EmptyState message="No hay presupuestos" action={{ label: 'Nuevo presupuesto', onClick: () => setOpen(true) }} />
       ) : (
         <TableContainer component={Box} sx={{ overflowX: 'auto' }}>
@@ -96,7 +96,7 @@ export default function PresupuestosPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(item => (
+              {(items ?? []).map(item => (
                 <TableRow key={item.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Chip label={item.numero} size="small" variant="outlined" /></TableCell>
                   <TableCell><Typography fontWeight={500}>{item.cliente_nombre}</Typography></TableCell>
@@ -128,7 +128,7 @@ export default function PresupuestosPage() {
             <InputLabel>Cliente</InputLabel>
             <Select value={form.cliente} onChange={e => setForm({...form, cliente: e.target.value})} fullWidth>
               <MenuItem value="">Consumidor Final</MenuItem>
-              {clientes.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
+              {(clientes ?? []).map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
             </Select>
           </FormControl>
           <Autocomplete
@@ -155,7 +155,7 @@ export default function PresupuestosPage() {
                   setForm({...form, detalles: dets})
                   fetchPrecio(form.cliente, Number(e.target.value), i)
                 }} fullWidth>
-                  {productos.map(p => <MenuItem key={p.id} value={p.id}>{p.codigo} - {p.nombre}</MenuItem>)}
+                  {(productos ?? []).map(p => <MenuItem key={p.id} value={p.id}>{p.codigo} - {p.nombre}</MenuItem>)}
                 </Select>
               </FormControl>
               <Box display="flex" gap={1} sx={{ width: '100%', flex: { md: 3 } }}>

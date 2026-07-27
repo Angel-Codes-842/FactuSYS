@@ -45,11 +45,11 @@ export default function AuditoriaPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {logs.length === 0 ? (
+                {!logs || logs.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">No hay registros de auditoría aún.</TableCell>
                   </TableRow>
-                ) : logs.map(log => (
+                ) : (logs ?? []).map(log => (
                   <TableRow key={log.id}>
                     <TableCell>{format(new Date(log.fecha), "dd MMM yyyy, HH:mm", { locale: es })}</TableCell>
                     <TableCell>{log.usuario_nombre}</TableCell>

@@ -393,7 +393,7 @@ export default function ConfiguracionPage() {
                 <Select value={form.timbrado_activo}
                   onChange={e => setForm({...form, timbrado_activo: e.target.value})} label="Timbrado para facturación (Defecto)">
                   <MenuItem value="">-- Ninguno (No requiere) --</MenuItem>
-                  {timbrados.filter((t: any) => t.vigente).map((t: any) => (
+                  {(timbrados ?? []).filter((t: any) => t.vigente).map((t: any) => (
                     <MenuItem key={t.id} value={t.id}>
                       {t.numero} (Activo)
                     </MenuItem>

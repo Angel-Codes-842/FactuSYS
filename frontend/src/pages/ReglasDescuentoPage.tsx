@@ -74,7 +74,7 @@ export default function ReglasDescuentoPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay reglas de descuento aún" action={{ label: 'Crear regla', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -89,7 +89,7 @@ export default function ReglasDescuentoPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(c => (
+              {(items ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{tipoLabel[c.tipo] || c.tipo}</Typography></TableCell>
                   <TableCell align="right">{Number(c.valor_condicion).toLocaleString('es-PY')}</TableCell>

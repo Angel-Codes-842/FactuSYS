@@ -64,11 +64,11 @@ export default function CuentasCorrientesPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" mb={2}>Clientes</Typography>
-              {isLoading ? <LoadingState /> : clientes.length === 0 ? (
+              {isLoading ? <LoadingState /> : !clientes || clientes.length === 0 ? (
                 <EmptyState message="Sin clientes" />
               ) : (
                 <Box display="flex" flexDirection="column" gap={0.5}>
-                  {clientes.map(c => {
+                  {(clientes ?? []).map(c => {
                     const saldo = c.saldo_actual || '0.00'
                     const esDeudor = Number(saldo) > 0
                     return (

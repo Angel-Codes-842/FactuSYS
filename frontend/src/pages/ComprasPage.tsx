@@ -55,7 +55,7 @@ export default function ComprasPage() {
         </Button>
       </Box>
 
-      {compras.length === 0 ? (
+      {!compras || compras.length === 0 ? (
         <EmptyState message="No hay compras registradas" action={{ label: 'Nueva compra', onClick: () => setOpen(true) }} />
       ) : (
         <TableContainer component={Box} sx={{ overflowX: 'auto' }}>
@@ -73,7 +73,7 @@ export default function ComprasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {compras.map(c => (
+              {(compras ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Chip label={c.numero} size="small" variant="outlined" /></TableCell>
                   <TableCell><Typography fontWeight={500}>{c.proveedor_nombre}</Typography></TableCell>
@@ -107,7 +107,7 @@ export default function ComprasPage() {
           <FormControl margin="dense" fullWidth>
             <InputLabel>Proveedor</InputLabel>
             <Select value={form.proveedor} onChange={e => setForm({...form, proveedor: e.target.value})} sx={{ minWidth: { xs: '100%', sm: 300 } }} fullWidth>
-              {proveedores.map(p => <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>)}
+              {(proveedores ?? []).map(p => <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>)}
             </Select>
           </FormControl>
 
@@ -132,7 +132,7 @@ export default function ComprasPage() {
                   dets[i].producto = e.target.value
                   setForm({...form, detalles: dets})
                 }} fullWidth>
-                  {productos.map(p => <MenuItem key={p.id} value={p.id}>{p.codigo} - {p.nombre}</MenuItem>)}
+                  {(productos ?? []).map(p => <MenuItem key={p.id} value={p.id}>{p.codigo} - {p.nombre}</MenuItem>)}
                 </Select>
               </FormControl>
               <Box display="flex" gap={1} sx={{ width: '100%', flex: { md: 3 } }}>

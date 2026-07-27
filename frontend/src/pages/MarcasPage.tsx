@@ -56,7 +56,7 @@ export default function MarcasPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : marcas.length === 0 ? (
+      {isLoading ? <LoadingState /> : !marcas || marcas.length === 0 ? (
         <EmptyState message="No hay marcas aún" action={{ label: 'Crear marca', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -70,7 +70,7 @@ export default function MarcasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {marcas.map(m => (
+              {(marcas ?? []).map(m => (
                 <TableRow key={m.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Typography fontWeight={600}>{m.nombre}</Typography></TableCell>
                   <TableCell align="center">

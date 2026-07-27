@@ -57,7 +57,7 @@ export default function PuestosPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay puestos aún" action={{ label: 'Crear puesto', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -71,7 +71,7 @@ export default function PuestosPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(c => (
+              {(items ?? []).map(c => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{c.nombre}</Typography></TableCell>
                   <TableCell align="right">{Number(c.salario_base).toLocaleString('es-PY', { minimumFractionDigits: 0 })} Gs.</TableCell>

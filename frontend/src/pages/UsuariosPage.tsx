@@ -100,7 +100,7 @@ export default function UsuariosPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {usuarios.map((u: any) => (
+              {(usuarios ?? []).map((u: any) => (
                 <TableRow key={u.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{u.username}</Typography></TableCell>
                   <TableCell>{`${u.first_name || ''} ${u.last_name || ''}`.trim() || <Typography variant="body2" color="text.disabled" component="span">—</Typography>}</TableCell>

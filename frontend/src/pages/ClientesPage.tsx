@@ -48,7 +48,7 @@ export default function ClientesPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : clientes.length === 0 ? (
+      {isLoading ? <LoadingState /> : !clientes || clientes.length === 0 ? (
         <EmptyState message="No hay clientes registrados" action={{ label: 'Crear cliente', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -66,7 +66,7 @@ export default function ClientesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {clientes.map((c: any) => (
+              {(clientes ?? []).map((c: any) => (
                 <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{c.nombre}</Typography></TableCell>
                   <TableCell>{c.ruc_ci || <Typography variant="body2" color="text.disabled" component="span">—</Typography>}</TableCell>

@@ -134,7 +134,7 @@ export default function VentasPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [cart, openCheckout, showShortcuts])
 
-  const filtered = useMemo(() => productos.filter(p => {
+  const filtered = useMemo(() => (productos ?? []).filter(p => {
     const matchSearch = !search ||
       p.nombre.toLowerCase().includes(search.toLowerCase()) ||
       p.codigo.toLowerCase().includes(search.toLowerCase())
@@ -378,7 +378,7 @@ export default function VentasPage() {
               <InputLabel>Categoría</InputLabel>
               <Select value={categoriaFilter} onChange={e => setCategoriaFilter(e.target.value)} label="Categoría">
                 <MenuItem value="">Todas</MenuItem>
-                {categorias.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
+                {(categorias ?? []).map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
               </Select>
             </FormControl>
           </Box>
@@ -425,10 +425,10 @@ export default function VentasPage() {
                   <InputLabel>Cliente</InputLabel>
                   <Select value={clienteId} onChange={e => {
                     setClienteId(e.target.value)
-                    const c = clientes.find(x => x.id === Number(e.target.value))
+                    const c = (clientes ?? []).find(x => x.id === Number(e.target.value))
                     if (c?.dias_credito) setPlazoDias(c.dias_credito)
                   }} label="Cliente">
-                    {clientes.map(c => (
+                    {(clientes ?? []).map(c => (
                       <MenuItem key={c.id} value={c.id}>
                         <Box display="flex" justifyContent="space-between" width="100%" gap={1}>
                           <span>{c.nombre}</span>

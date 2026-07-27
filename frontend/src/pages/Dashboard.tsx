@@ -26,7 +26,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const theme = useTheme()
 
-  const maxChartValue = Math.max(...chartData.map(d => d.total), 1)
+  const maxChartValue = Math.max(...(chartData ?? []).map(d => d.total), 1)
 
   const cards = data ? [
     {
@@ -184,11 +184,11 @@ export default function Dashboard() {
                 Ventas (Últimos 7 días)
               </Typography>
               
-              {!chartData.length ? (
+              {!chartData?.length ? (
                 <LoadingState height={100} />
               ) : (
                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', pt: 4, pb: 1, gap: 1 }}>
-                  {chartData.map((d, i) => {
+                  {chartData?.map((d, i) => {
                     const heightPercent = Math.max((d.total / maxChartValue) * 100, 2)
                     return (
                       <Tooltip key={i} title={`${d.fecha}: Gs. ${d.total.toLocaleString('es-PY')}`} arrow placement="top">

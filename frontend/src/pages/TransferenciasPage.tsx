@@ -65,7 +65,7 @@ export default function TransferenciasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(t => (
+              {(items ?? []).map(t => (
                 <TableRow key={t.id} hover>
                   <TableCell><Typography fontWeight={600}>{t.producto_nombre}</Typography></TableCell>
                   <TableCell align="center">{t.cantidad}</TableCell>
@@ -101,13 +101,13 @@ export default function TransferenciasPage() {
           <FormControl fullWidth margin="dense">
             <InputLabel>Origen</InputLabel>
             <Select value={form.origen} onChange={e => setForm({...form, origen: e.target.value})} label="Origen" fullWidth>
-              {sucursales.map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
+              {(sucursales ?? []).map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl fullWidth margin="dense">
             <InputLabel>Destino</InputLabel>
             <Select value={form.destino} onChange={e => setForm({...form, destino: e.target.value})} label="Destino" fullWidth>
-              {sucursales.map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
+              {(sucursales ?? []).map(s => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
             </Select>
           </FormControl>
           <TextField label="Motivo" multiline rows={2} margin="dense" fullWidth value={form.motivo}

@@ -179,7 +179,7 @@ export default function NotasRemisionPage() {
           onChange={e => setFechaHasta(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay notas de remisión" action={{ label: 'Nueva nota', onClick: () => { resetForm(); setOpen(true) } }} />
       ) : filtered.length === 0 ? (
         <EmptyState message="No hay resultados para la búsqueda" />
@@ -200,7 +200,7 @@ export default function NotasRemisionPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map(n => (
+              {(filtered ?? []).map(n => (
                 <TableRow key={n.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell align="center"><Chip label={n.numero} size="small" variant="outlined" /></TableCell>
                   <TableCell>{n.factura_numero || '—'}</TableCell>

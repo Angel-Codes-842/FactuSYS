@@ -57,7 +57,7 @@ export default function TransportistasPage() {
         </Button>
       </Box>
 
-      {isLoading ? <LoadingState /> : items.length === 0 ? (
+      {isLoading ? <LoadingState /> : !items || items.length === 0 ? (
         <EmptyState message="No hay transportistas aún" action={{ label: 'Crear transportista', onClick: () => handleOpen() }} />
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -73,7 +73,7 @@ export default function TransportistasPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map(item => (
+              {(items ?? []).map(item => (
                 <TableRow key={item.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                   <TableCell><Typography fontWeight={600}>{item.nombre}</Typography></TableCell>
                   <TableCell>{item.telefono || '—'}</TableCell>
