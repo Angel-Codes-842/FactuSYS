@@ -308,7 +308,6 @@ urlpatterns = router.urls
 ```python
     'apps.vendedores',
     'apps.sucursales',
-    # 'apps.sifen',
 ```
 
 - [ ] **Step 2: Add API route in urls.py**
