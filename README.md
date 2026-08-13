@@ -19,7 +19,7 @@ El sistema está optimizado para funcionar tanto de forma local como en red loca
 * **Presupuestos**: Emisión y conversión directa de presupuestos en facturas/ventas con un solo clic.
 * **Cuentas Corrientes**: Control de límites y plazos de crédito para clientes.
 * **Caja Diaria**: Control de apertura, saldo esperado, registro de gastos diarios y cierre de caja.
-* **Facturación Electrónica**: Estructura base preparada para la integración con **SIFEN** (Paraguay).
+* **Notas de Crédito / Débito**: Emisión de notas correctivas vinculadas a una factura original.
 
 ### 3. Inventario y Logística
 * **Control de Stock por Lotes**: Seguimiento minucioso de stock por lotes y control estricto de fechas de vencimiento (crítico para farmacias y alimentos).

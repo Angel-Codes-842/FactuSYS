@@ -21,11 +21,6 @@ FORMATO_IMPRESION_CHOICES = [
     ('ticket80', 'Ticket 80mm (impresora térmica)'),
 ]
 
-SIFEN_AMBIENTE_CHOICES = [
-    ('homologacion', 'Homologación (pruebas)'),
-    ('produccion', 'Producción (real)'),
-]
-
 
 class ConfiguracionEmpresa(models.Model):
     logo = models.ImageField(
@@ -52,24 +47,6 @@ class ConfiguracionEmpresa(models.Model):
     formato_impresion = models.CharField(
         'Formato de impresión', max_length=10,
         choices=FORMATO_IMPRESION_CHOICES, default='a4',
-    )
-    # ── SIFEN ────────────────────────────────────────────────────────────────
-    sifen_habilitado = models.BooleanField(
-        'SIFEN habilitado', default=False,
-        help_text='Activar para emitir Documentos Electrónicos (DE) al SET',
-    )
-    sifen_ambiente = models.CharField(
-        'Ambiente SIFEN', max_length=15,
-        choices=SIFEN_AMBIENTE_CHOICES, default='homologacion',
-    )
-    certificado_sifen = models.FileField(
-        'Certificado digital SIFEN (.p12/.pfx)', upload_to='certificados/',
-        null=True, blank=True,
-        help_text='Archivo PKCS#12 del certificado digital para SIFEN',
-    )
-    clave_certificado_sifen = models.CharField(
-        'Clave del certificado SIFEN', max_length=255, blank=True,
-        help_text='Contraseña del archivo PKCS#12',
     )
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)

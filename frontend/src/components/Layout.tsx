@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   AppBar, Toolbar, Typography, Drawer, List, ListItemButton,
   ListItemIcon, ListItemText, Box, Button, Collapse, Avatar,
-  IconButton, Badge, Chip, Tooltip,
+  IconButton, Badge, Tooltip,
 } from '@mui/material'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import PeopleIcon from '@mui/icons-material/People'
@@ -148,20 +148,6 @@ export default function Layout() {
     setMobileOpen(false)
   }
 
-  const renderSifenStatus = () => {
-    if (!config) return null
-    if (!config.sifen_habilitado) return <Chip label="SIFEN OFF" size="small" sx={{ ml: 2, mb: 2, fontSize: '0.65rem', fontWeight: 'bold' }} />
-    const isTest = config.sifen_ambiente === 'homologacion'
-    return (
-      <Chip 
-        label={isTest ? 'SIFEN TEST' : 'SIFEN PROD'} 
-        size="small" 
-        color={isTest ? 'warning' : 'success'}
-        sx={{ ml: 2, mb: 2, fontSize: '0.65rem', fontWeight: 'bold' }} 
-      />
-    )
-  }
-
   const isAdmin = user?.tipo === 'admin'
 
   const drawerContent = (
@@ -236,7 +222,6 @@ export default function Layout() {
             )
           })}
       </List>
-      {renderSifenStatus()}
     </Box>
   )
 

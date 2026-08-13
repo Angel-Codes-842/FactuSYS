@@ -74,14 +74,6 @@ class Factura(models.Model):
     timbrado_numero = models.CharField(
         'Nº Timbrado', max_length=20, blank=True, editable=False
     )
-    cdc = models.CharField('CDC', max_length=44, blank=True, editable=False)
-    sifen_estado = models.CharField(
-        'Estado SIFEN', max_length=20, blank=True, editable=False,
-        choices=[('', 'No enviado'), ('aprobado', 'Aprobado'), ('rechazado', 'Rechazado'), ('error', 'Error')],
-        default='',
-    )
-    sifen_protocolo = models.CharField('Protocolo SIFEN', max_length=20, blank=True, editable=False)
-    xml_firmado = models.TextField('XML firmado', blank=True, editable=False)
     notas = models.TextField(blank=True)
     descuento_porcentaje = models.DecimalField(
         'Desc. %', max_digits=5, decimal_places=2, default=0,

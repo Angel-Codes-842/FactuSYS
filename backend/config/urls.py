@@ -4,18 +4,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.health import health_check
-from apps.empresa.models import ConfiguracionEmpresa
-
-
-def _sifen_urls():
-    """Incluye las URLs de SIFEN solo si está habilitado en la configuración de la empresa."""
-    try:
-        config = ConfiguracionEmpresa.objects.first()
-        if config and config.sifen_habilitado:
-            return [path('api/sifen/', include('apps.sifen.urls'))]
-    except Exception:
-        pass
-    return []
 
 
 urlpatterns = [
@@ -38,8 +26,6 @@ urlpatterns = [
     path('api/stock/', include('apps.stock.urls')),
     path('api/compras/', include('apps.compras.urls')),
     path('api/common/', include('apps.common.urls')),
-    # SIFEN: se incluye dinámicamente solo si sifen_habilitado=True en ConfiguracionEmpresa
-    *_sifen_urls(),
 ]
 
 # Serve media files (Nginx handles /static/ via shared volume)

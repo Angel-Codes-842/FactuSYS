@@ -1,20 +1,18 @@
 import { useState, useEffect } from 'react'
 import {
   Box, Typography, Card, CardContent, TextField, Button,
-  FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch,
+  FormControl, InputLabel, Select, MenuItem,
   Snackbar, Alert, Grid2, CircularProgress, Chip, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Accordion, AccordionSummary, AccordionDetails, Divider, Collapse, Tabs, Tab
+  Tabs, Tab
 } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import PrintIcon from '@mui/icons-material/Print'
-import SecurityIcon from '@mui/icons-material/Security'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import api from '../services/api'
 import { useEmpresaConfig, useTimbrados, useTimbradosAutofactura, useActualizarEmpresaConfig, useCrearTimbrado, useActualizarTimbrado, useEliminarTimbrado } from '../hooks/useApi'
@@ -81,8 +79,7 @@ export default function ConfiguracionPage() {
   const [form, setForm] = useState<any>({
     nombre: '', ruc: '', direccion: '', telefono: '', ciudad: '', rubro: 'general',
     formato_impresion: 'a4', timbrado_activo: '', pie_factura: '',
-    sifen_habilitado: false, sifen_ambiente: 'homologacion',
-    clave_certificado_sifen: '', logo: null, certificado_sifen: null,
+    logo: null,
   })
 
   const [timbradosTab, setTimbradosTab] = useState(0)
@@ -109,11 +106,7 @@ export default function ConfiguracionPage() {
         formato_impresion: empresaConfig.formato_impresion || 'a4',
         timbrado_activo: empresaConfig.timbrado_activo || '',
         pie_factura: empresaConfig.pie_factura || '',
-        sifen_habilitado: empresaConfig.sifen_habilitado || false,
-        sifen_ambiente: empresaConfig.sifen_ambiente || 'homologacion',
-        clave_certificado_sifen: '',
         logo: null,
-        certificado_sifen: null,
       })
     }
   }, [empresaConfig])
@@ -123,10 +116,9 @@ export default function ConfiguracionPage() {
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]: [string, any]) => {
-        if (k === 'logo' || k === 'certificado_sifen') {
+        if (k === 'logo') {
           if (v) fd.append(k, v as Blob)
         } else if (k === 'timbrado_activo' && !v) {
-        } else if (k === 'clave_certificado_sifen' && !v) {
         } else {
           fd.append(k, String(v))
         }
@@ -246,65 +238,6 @@ export default function ConfiguracionPage() {
               </Box>
             </CardContent>
           </Card>
-
-          <Accordion sx={{ mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', '&:before': { display: 'none' } }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="h6" display="flex" alignItems="center" color={form.sifen_habilitado ? 'success.main' : 'text.primary'}>
-                <SecurityIcon sx={{ mr: 1 }} /> 
-                Facturación Electrónica (SIFEN)
-                {form.sifen_habilitado && <Chip label="ACTIVO" size="small" color="success" sx={{ ml: 2, height: 20 }} />}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Alert severity="info" sx={{ mb: 3 }}>
-                La integración SIFEN permite emitir Documentos Electrónicos (KUDE) aprobados por la SET. Necesitarás el certificado digital de la empresa (.p12).
-              </Alert>
-              
-              <FormControlLabel
-                control={<Switch checked={form.sifen_habilitado} onChange={e => setForm({...form, sifen_habilitado: e.target.checked})} />}
-                label={<Typography fontWeight="bold">Habilitar emisión electrónica al SIFEN</Typography>}
-                sx={{ mb: 3 }}
-              />
-
-              <Collapse in={form.sifen_habilitado}>
-                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2} mb={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Ambiente SIFEN</InputLabel>
-                    <Select value={form.sifen_ambiente} label="Ambiente SIFEN"
-                      onChange={e => setForm({...form, sifen_ambiente: e.target.value})}>
-                      <MenuItem value="homologacion">Homologación (Pruebas - Sin valor legal)</MenuItem>
-                      <MenuItem value="produccion">Producción (Operación Real)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-                
-                <Divider sx={{ my: 2 }} />
-                
-                <Typography variant="subtitle2" mb={2}>Certificado Digital (Firma Electrónica)</Typography>
-                
-                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2}>
-                  <Box>
-                    <Button variant="outlined" component="label" fullWidth sx={{ height: '100%', minHeight: 40, justifyContent: 'flex-start' }}>
-                      {form.certificado_sifen ? form.certificado_sifen.name : empresaConfig?.certificado_sifen_nombre || 'Seleccionar certificado (.p12)'}
-                      <input type="file" hidden accept=".p12,.pfx"
-                        onChange={e => {
-                          const file = e.target.files?.[0]
-                          if (file) setForm({...form, certificado_sifen: file})
-                        }} />
-                    </Button>
-                  </Box>
-                  <TextField 
-                    label="Contraseña del Certificado" 
-                    type="password"
-                    placeholder={empresaConfig?.certificado_sifen_url ? '****** (ya configurada)' : ''}
-                    value={form.clave_certificado_sifen}
-                    onChange={e => setForm({...form, clave_certificado_sifen: e.target.value})} 
-                    fullWidth 
-                  />
-                </Box>
-              </Collapse>
-            </AccordionDetails>
-          </Accordion>
 
           <Card sx={{ mb: 3 }}>
             <CardContent>

@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'apps.descuentos',
     'apps.logistica',
     'apps.stock',
-    'apps.sifen',   # Siempre instalado (migraciones disponibles); activación controlada por ConfiguracionEmpresa.sifen_habilitado
     ]
 
 MIDDLEWARE = [
@@ -205,8 +204,6 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Sistema de Facturación y Control de Stock',
     'VERSION': '1.0.0',
 }
-
-SIFEN_AMBIENTE = os.environ.get('SIFEN_AMBIENTE', 'homologacion')
 
 IVA_PORCENTAJE = int(os.environ.get('IVA_PORCENTAJE', '10'))
 MONEDA = os.environ.get('MONEDA', 'PYG')

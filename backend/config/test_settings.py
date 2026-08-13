@@ -29,7 +29,6 @@ INSTALLED_APPS = [
     'apps.caja',
     'apps.compras',
     'apps.presupuestos',
-    # 'apps.sifen',
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
@@ -51,7 +50,13 @@ STATIC_ROOT = '/tmp/test_static'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = '/tmp/test_media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-SIFEN_AMBIENTE = 'homologacion'
+
+IVA_PORCENTAJE = 10
+MONEDA = 'PYG'
+MONEDA_SIMBOLO = 'Gs.'
+EMPRESA_NOMBRE = 'FactuSYS'
+EMPRESA_CIUDAD = 'Pilar'
+EMPRESA_PAIS = 'Paraguay'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
