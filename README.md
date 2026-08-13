@@ -16,19 +16,25 @@ El sistema está optimizado para funcionar tanto de forma local como en red loca
 * **Buscador Rápido**: Búsqueda instantánea de productos mediante código de barras o descripción.
 
 ### 2. Facturación y Finanzas
-* **Presupuestos**: Emisión y conversión directa de presupuestos en facturas/ventas con un solo clic.
-* **Cuentas Corrientes**: Control de límites y plazos de crédito para clientes.
-* **Caja Diaria**: Control de apertura, saldo esperado, registro de gastos diarios y cierre de caja.
+* **Facturas con Timbrado SET**: Emisión de facturas legales numeradas con control de timbrado y rangos disponibles.
+* **Ticket Interno**: Soporte para ventas rápidas con ticket sin factura legal.
+* **Crédito y Cuentas Corrientes**: Ventas a crédito con generación automática de cuotas, control de límites y plazos.
 * **Notas de Crédito / Débito**: Emisión de notas correctivas vinculadas a una factura original.
+* **Presupuestos**: Emisión y conversión directa de presupuestos en facturas/ventas con un solo clic.
+* **Caja Diaria**: Control de apertura, saldo esperado, registro de gastos diarios y cierre de caja.
 
 ### 3. Inventario y Logística
 * **Control de Stock por Lotes**: Seguimiento minucioso de stock por lotes y control estricto de fechas de vencimiento (crítico para farmacias y alimentos).
+* **Compras a Proveedores**: Registro de compras, recepción de mercadería y actualización automática del stock.
 * **Multisucursal**: Transferencias de stock entre diferentes sucursales y control de inventario local.
+* **Promociones y Reglas de Descuento**: Descuentos escalonados por volumen, ofertas y autofacturas.
 * **Notas de Remisión**: Emisión y control de logística de envío de mercaderías vinculadas a transportistas y zonas geográficas.
 
 ### 4. Administración y Seguridad
 * **Gestión de Proveedores y Clientes**: Directorio y perfiles completos.
 * **Control de Usuarios**: Roles, permisos y asignación de personal a puestos de trabajo y sucursales específicas.
+* **Auditoría**: Registro de acciones de los usuarios sobre los datos del sistema.
+* **Respaldos Automáticos**: Copias de seguridad programadas de la base de datos (supercronic).
 
 ---
 
@@ -57,7 +63,7 @@ FactuSYS/
 │   ├── src/                # Código fuente del Frontend
 │   │   ├── components/     # Componentes compartidos y Layout
 │   │   ├── contexts/       # Contexto de autenticación
-│   │   ├── pages/          # 25+ vistas de administración y POS
+│   │   ├── pages/          # 30+ vistas de administración y POS
 │   │   └── services/       # Cliente API Axios
 │   ├── Dockerfile
 │   ├── nginx.conf          # Configuración de Nginx para enrutamiento SPA
