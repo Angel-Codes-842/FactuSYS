@@ -7,9 +7,12 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DownloadIcon from '@mui/icons-material/Download'
+import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
-import { useCompras, useProveedores, useProductos, useCrearCompra, useRecibirCompra } from '../hooks/useApi'
+import {
+  useCompras, useProveedores, useProductos, useCrearCompra, useRecibirCompra, useCrearProveedor,
+} from '../hooks/useApi'
 
 export default function ComprasPage() {
   const { data: compras, isLoading } = useCompras()
@@ -17,11 +20,17 @@ export default function ComprasPage() {
   const { data: productos } = useProductos()
   const crearCompra = useCrearCompra()
   const recibirCompra = useRecibirCompra()
+  const crearProveedor = useCrearProveedor()
   const [open, setOpen] = useState(false)
+  const [openProveedor, setOpenProveedor] = useState(false)
   const [form, setForm] = useState<any>({
     proveedor: '', detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }],
   })
+  const [formProveedor, setFormProveedor] = useState<any>({
+    nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '',
+  })
   const [snack, setSnack] = useState('')
+  const [snackSeverity, setSnackSeverity] = useState<'success' | 'error' | 'info'>('info')
   const [confirmRecibir, setConfirmRecibir] = useState<any>(null)
 
   const handleCreate = async () => {
@@ -30,8 +39,10 @@ export default function ComprasPage() {
       setOpen(false)
       setForm({ proveedor: '', tipo: 'factura_legal', factura_numero: '', detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }] })
       setSnack('Compra creada exitosamente')
+      setSnackSeverity('success')
     } catch (err: any) {
       setSnack(err.response?.data?.detail || 'Error al crear compra')
+      setSnackSeverity('error')
     }
   }
 
@@ -39,6 +50,23 @@ export default function ComprasPage() {
     await recibirCompra.mutateAsync({ id, data: {} })
     setConfirmRecibir(null)
     setSnack('Compra recibida, lotes creados')
+    setSnackSeverity('success')
+  }
+
+  const handleGuardarProveedor = async () => {
+    try {
+      const creado: any = await crearProveedor.mutateAsync(formProveedor)
+      if (creado?.id) setForm(prev => ({ ...prev, proveedor: creado.id }))
+      setOpenProveedor(false)
+      setFormProveedor({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '' })
+      setSnack('Proveedor creado y seleccionado para la compra')
+      setSnackSeverity('success')
+    } catch (err: any) {
+      const data = err.response?.data
+      const mensaje = data?.detail || Object.values(data ?? {}).flat().join(', ') || 'Error al crear el proveedor'
+      setSnack(String(mensaje))
+      setSnackSeverity('error')
+    }
   }
 
   if (isLoading) return <LoadingState height={400} />
@@ -50,9 +78,14 @@ export default function ComprasPage() {
           <ShoppingCartIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
           Compras
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-          Nueva Compra
-        </Button>
+        <Box display="flex" gap={1} flexWrap="wrap">
+          <Button variant="outlined" startIcon={<LocalShippingIcon />} onClick={() => setOpenProveedor(true)}>
+            Nuevo Proveedor
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
+            Nueva Compra
+          </Button>
+        </Box>
       </Box>
 
       {!compras || compras.length === 0 ? (
@@ -161,6 +194,30 @@ export default function ComprasPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={openProveedor} onClose={() => setOpenProveedor(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Nuevo Proveedor</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+          <TextField margin="dense" size="small" label="Nombre/Razón Social" fullWidth required
+            value={formProveedor.nombre} onChange={e => setFormProveedor({ ...formProveedor, nombre: e.target.value })} />
+          <TextField margin="dense" size="small" label="RUC" fullWidth
+            value={formProveedor.ruc} onChange={e => setFormProveedor({ ...formProveedor, ruc: e.target.value })} />
+          <TextField margin="dense" size="small" label="Persona de Contacto" fullWidth
+            value={formProveedor.contacto} onChange={e => setFormProveedor({ ...formProveedor, contacto: e.target.value })} />
+          <TextField margin="dense" size="small" label="Teléfono" fullWidth
+            value={formProveedor.telefono} onChange={e => setFormProveedor({ ...formProveedor, telefono: e.target.value })} />
+          <TextField margin="dense" size="small" label="Email" type="email" fullWidth
+            value={formProveedor.email} onChange={e => setFormProveedor({ ...formProveedor, email: e.target.value })} />
+          <TextField margin="dense" size="small" label="Dirección" fullWidth multiline rows={2}
+            value={formProveedor.direccion} onChange={e => setFormProveedor({ ...formProveedor, direccion: e.target.value })} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenProveedor(false)} color="inherit">Cancelar</Button>
+          <Button variant="contained" onClick={handleGuardarProveedor} disabled={!formProveedor.nombre || crearProveedor.isPending}>
+            Guardar y seleccionar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
         open={!!confirmRecibir}
         title="Recibir compra"
@@ -171,7 +228,7 @@ export default function ComprasPage() {
       />
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack('')}>
-        <Alert severity="info" onClose={() => setSnack('')} sx={{ width: '100%' }}>{snack}</Alert>
+        <Alert severity={snackSeverity} onClose={() => setSnack('')} sx={{ width: '100%' }}>{snack}</Alert>
       </Snackbar>
     </Box>
   )
