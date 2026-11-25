@@ -290,4 +290,10 @@ alter table public.vendedores_vendedor
   alter column creado set default now(),
   alter column actualizado set default now();
 
+-- El ORM de Django creaba una fila de configuración al migrar. En Supabase
+-- la tabla queda vacía y el dashboard mostraba "undefined — undefined".
+insert into public.empresa_configuracionempresa (nombre, ruc, direccion, telefono, ciudad)
+select 'FactuSYS', '', '', '', 'Pilar'
+where not exists (select 1 from public.empresa_configuracionempresa);
+
 notify pgrst, 'reload config';

@@ -332,7 +332,10 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
   if (pathname === '/empresa/configuracion/actual/' && method === 'get') {
     const { data: rows, error } = await client.from('v_empresa_config').select('*').limit(1)
     if (error) httpError(400, { error: error.message })
-    return { data: rows?.[0] ?? {} }
+    // Un proyecto Supabase recién creado no tiene fila de configuración; el
+    // ORM de Django sí la sembraba. Devolvemos los mismos valores por defecto
+    // para que el dashboard no muestre "undefined — undefined".
+    return { data: rows?.[0] ?? { nombre: 'FactuSYS', ciudad: 'Pilar', direccion: '', telefono: '', ruc: '' } }
   }
   if (pathname.startsWith('/empresa/configuracion/') && (method === 'post' || method === 'patch')) {
     const id = pathname.match(/\/(\d+)\/?$/)?.[1]
