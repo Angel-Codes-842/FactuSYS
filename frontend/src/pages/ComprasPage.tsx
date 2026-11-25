@@ -27,7 +27,7 @@ export default function ComprasPage() {
     proveedor: '', detalles: [{ producto: '', cantidad: 1, precio_unitario: 0 }],
   })
   const [formProveedor, setFormProveedor] = useState<any>({
-    nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '',
+    nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '', activo: true,
   })
   const [snack, setSnack] = useState('')
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error' | 'info'>('info')
@@ -55,10 +55,15 @@ export default function ComprasPage() {
 
   const handleGuardarProveedor = async () => {
     try {
-      const creado: any = await crearProveedor.mutateAsync(formProveedor)
+      const creado: any = await crearProveedor.mutateAsync({
+        ...formProveedor,
+        activo: formProveedor.activo ?? true,
+        creado: new Date().toISOString(),
+        actualizado: new Date().toISOString(),
+      })
       if (creado?.id) setForm(prev => ({ ...prev, proveedor: creado.id }))
       setOpenProveedor(false)
-      setFormProveedor({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '' })
+      setFormProveedor({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '', activo: true })
       setSnack('Proveedor creado y seleccionado para la compra')
       setSnackSeverity('success')
     } catch (err: any) {

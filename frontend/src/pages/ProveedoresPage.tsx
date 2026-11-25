@@ -17,21 +17,29 @@ export default function ProveedoresPage() {
   const eliminarProveedor = useEliminarProveedor()
   const [open, setOpen] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
-  const [form, setForm] = useState<any>({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '' })
+  const [form, setForm] = useState<any>({ nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '', activo: true })
   const [snack, setSnack] = useState('')
 
   const handleOpen = (item?: any) => {
     setEditItem(item || null)
-    setForm(item || { nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '' })
+    setForm(item || { nombre: '', ruc: '', contacto: '', telefono: '', email: '', direccion: '', activo: true })
     setOpen(true)
   }
 
   const handleSave = async () => {
+    // Django completaba `activo`/timestamps en el modelo; PostgREST inserta
+    // directo. Se envían explícitamente para no depender de la migración 0007.
+    const payload = {
+      ...form,
+      activo: form.activo ?? true,
+      creado: form.creado ?? new Date().toISOString(),
+      actualizado: new Date().toISOString(),
+    }
     try {
       if (editItem) {
-        await actualizarProveedor.mutateAsync({ id: editItem.id, data: form })
+        await actualizarProveedor.mutateAsync({ id: editItem.id, data: payload })
       } else {
-        await crearProveedor.mutateAsync(form)
+        await crearProveedor.mutateAsync(payload)
       }
       setOpen(false)
       setSnack(editItem ? 'Proveedor actualizado exitosamente' : 'Proveedor creado exitosamente')

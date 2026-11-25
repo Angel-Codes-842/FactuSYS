@@ -15,13 +15,15 @@ Implementación del primer corte de la migración: esquema, Reglas de Seguridad 
 
 | Archivo | Función |
 |---|---|
-| `config.toml` | Proyecto local, puertos y `verify_jwt = true` para las tres Functions. |
+| `config.toml` | Proyecto local, puertos y `verify_jwt = false` en las tres Functions (cada una valida al usuario por código). |
 | `migrations/0000_baseline.sql` | Esquema real de Postgres obtenido con `pg_dump --schema-only`, no un replay de las 43 migraciones de Django. |
 | `migrations/0001_auth.sql` | `public.perfiles`, FKs a UUID, `handle_new_user()`, `current_tipo()`, `current_sucursal_id()`, `proteger_perfil()` y RLS base. |
 | `migrations/0002_documentos_electronicos.sql` | Tabla `documentos_electronicos`, `receiptid` único, RPCs de registro/estado y sincronización. |
 | `migrations/0003_negocio.sql` | Numeración, stock/FIFO, timbrado, facturación, crédito/cuotas, pagos, anulación, notas, caja, compras, transferencias y presupuestos. |
 | `migrations/0004_compat.sql` | Vistas `v_*` y RPCs que reproducen el contrato DRF consumido por el SPA. |
 | `migrations/0005_creacion_compuesta.sql` | RPCs para crear compras, presupuestos y autofacturas con `detalles` anidados; bucket público `empresa` para el logo. |
+| `migrations/0006_api_grants.sql` | Refuerzo final de `GRANT`s (corrige el bug de exclusión de tablas sensibles de `0001`). |
+| `migrations/0007_defaults.sql` | Defaults de `NOT NULL` que antes aplicaba el ORM de Django; sin esto fallan los altas genéricas vía PostgREST (por ejemplo proveedores). |
 | `functions/factpy-emitter/` | Builders de payloads, cliente `multipart/form-data`, reintentos y Edge Function autenticada. |
 | `functions/factusys-admin/` | Alta, edición y baja lógica de usuarios, con verificación de admin y guardas de último administrador. |
 | `functions/factusys-reportes/` | Impresión HTML y PDF de facturas/tickets desde `v_facturas_detalle` y `v_empresa_config`. |
@@ -40,6 +42,9 @@ No hace falta Supabase CLI ni MCP para crear el esquema. En un proyecto Supabase
 | 5 | `migrations/0004_compat.sql` | Vistas `v_*` y RPCs que consumen los hooks actuales del SPA. |
 | 6 | `migrations/0005_creacion_compuesta.sql` | Creación con detalles anidados y bucket público `empresa`. |
 | 7 | `migrations/0006_api_grants.sql` | Refuerzo final de `GRANT`s y `notify pgrst, 'reload config'`. |
+| 8 | `migrations/0007_defaults.sql` | Defaults de columnas `NOT NULL` (`activo`, `creado`, `fecha`, etc.) que el ORM de Django completaba. Corre el alta de proveedores/clientes/gastos. |
+
+Si ya tenés el esquema aplicado, alcanza con correr **solo `0007_defaults.sql`**; es idempotente y no recrea tablas.
 
 Notas:
 
