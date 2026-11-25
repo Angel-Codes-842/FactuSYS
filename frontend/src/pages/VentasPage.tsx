@@ -17,6 +17,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
 import PrintIcon from '@mui/icons-material/Print'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import RemoveIcon from '@mui/icons-material/Remove'
 import SearchIcon from '@mui/icons-material/Search'
 import api from '../services/api'
@@ -26,16 +27,20 @@ import {
 } from '../hooks/useApi'
 import { ConfirmDialog } from '../components/SharedComponents'
 
-type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta_pos'
+type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta_pos' | 'cheque'
 type FormaPago = MetodoPago | 'mixto' | 'credito'
 
+const METODOS_MIXTOS: MetodoPago[] = ['efectivo', 'transferencia', 'tarjeta_pos', 'cheque']
 const FORMAS_PAGO: Array<{ value: FormaPago; label: string; icon: React.ReactNode }> = [
   { value: 'efectivo', label: 'Efectivo', icon: <LocalAtmIcon /> },
   { value: 'tarjeta_pos', label: 'Tarjeta / POS', icon: <CreditCardIcon /> },
-  { value: 'transferencia', label: 'Transferencia', icon: <AccountBalanceIcon /> },
+  { value: 'transferencia', label: 'Transferencia bancaria', icon: <AccountBalanceIcon /> },
+  { value: 'cheque', label: 'Cheque', icon: <ReceiptLongIcon /> },
   { value: 'mixto', label: 'Pago combinado', icon: <AccountBalanceIcon /> },
   { value: 'credito', label: 'Crédito / Fiado', icon: <CreditCardIcon /> },
 ]
+
+const pagosMixtosVacios = () => ({ efectivo: 0, transferencia: 0, tarjeta_pos: 0, cheque: 0 })
 
 const formatQty = (qty: number) => {
   if (qty % 1 === 0) return qty.toString()
@@ -89,7 +94,7 @@ export default function VentasPage() {
   const searchRef = useRef<HTMLInputElement>(null)
 
   const [formaPago, setFormaPago] = useState<FormaPago>('efectivo')
-  const [pagosMixtos, setPagosMixtos] = useState({ efectivo: 0, transferencia: 0, tarjeta_pos: 0 })
+  const [pagosMixtos, setPagosMixtos] = useState(pagosMixtosVacios)
   const [montoRecibido, setMontoRecibido] = useState('')
   const [abonoCredito, setAbonoCredito] = useState(0)
   const [processing, setProcessing] = useState(false)
@@ -211,7 +216,7 @@ export default function VentasPage() {
     setEsTicket(false)
     setTipo('contado')
     setDescuentoPorcentaje(0)
-    setPagosMixtos({ efectivo: 0, transferencia: 0, tarjeta_pos: 0 })
+    setPagosMixtos(pagosMixtosVacios())
     setAbonoCredito(0)
     setSearch('')
   }
@@ -253,7 +258,7 @@ export default function VentasPage() {
     if (cart.some(item => item.cantidad <= 0)) { setSnack('Las cantidades deben ser mayores a 0'); return }
 
     setFormaPago(tipo === 'credito' ? 'credito' : 'efectivo')
-    setPagosMixtos({ efectivo: totalConIva, transferencia: 0, tarjeta_pos: 0 })
+    setPagosMixtos({ ...pagosMixtosVacios(), efectivo: totalConIva })
     setMontoRecibido(String(totalConIva))
     setAbonoCredito(0)
     setOpenCheckout(true)
@@ -278,17 +283,18 @@ export default function VentasPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   })
 
-  const pagosMixtosTotales = pagosMixtos.efectivo + pagosMixtos.transferencia + pagosMixtos.tarjeta_pos
+  const pagosMixtosTotales = METODOS_MIXTOS.reduce((suma, metodo) => suma + pagosMixtos[metodo], 0)
   const diferenciaMixta = Math.round(pagosMixtosTotales - totalConIva)
   const recibido = Number(montoRecibido || 0)
-  const vuelto = Math.max(0, recibido - totalConIva)
+  // Sólo el efectivo genera vuelto; tarjeta, transferencia y cheque son exactos.
+  const vuelto = formaPago === 'efectivo' ? Math.max(0, recibido - totalConIva) : 0
 
   const pagosParaEnviar: PagoItem[] = (() => {
     if (tipo === 'credito') {
       return abonoCredito > 0 ? [{ metodo: 'efectivo', monto: abonoCredito }] : []
     }
     if (formaPago === 'mixto') {
-      return (['efectivo', 'transferencia', 'tarjeta_pos'] as MetodoPago[])
+      return METODOS_MIXTOS
         .filter(metodo => pagosMixtos[metodo] > 0)
         .map(metodo => ({ metodo, monto: pagosMixtos[metodo] }))
     }
@@ -300,9 +306,15 @@ export default function VentasPage() {
       setSnack('El desglose de pagos debe sumar el total de la venta')
       return
     }
-    if (tipo !== 'credito' && formaPago !== 'mixto' && recibido < totalConIva) {
-      setSnack('El monto recibido no cubre el total')
-      return
+    if (tipo !== 'credito' && formaPago !== 'mixto') {
+      if (formaPago === 'efectivo' && recibido < totalConIva) {
+        setSnack('El monto recibido no cubre el total')
+        return
+      }
+      if (formaPago !== 'efectivo' && Math.abs(recibido - totalConIva) > 1) {
+        setSnack('El monto debe coincidir con el total de la venta')
+        return
+      }
     }
     if (tipo === 'credito' && abonoCredito > totalConIva) {
       setSnack('El abono no puede superar el total de la venta')
@@ -590,8 +602,8 @@ export default function VentasPage() {
             <Select value={formaPago} label="Forma de pago" onChange={e => {
               const value = e.target.value as FormaPago
               setFormaPago(value)
-              if (value === 'mixto') setPagosMixtos({ efectivo: totalConIva, transferencia: 0, tarjeta_pos: 0 })
-              if (value === 'efectivo') setMontoRecibido(String(totalConIva))
+              if (value === 'mixto') setPagosMixtos({ ...pagosMixtosVacios(), efectivo: totalConIva })
+              if (value !== 'efectivo') setMontoRecibido(String(totalConIva))
             }}>
               {FORMAS_PAGO.map(m => <MenuItem key={m.value} value={m.value}>
                 <Box display="flex" alignItems="center" gap={1}>{m.icon} {m.label}</Box>
@@ -610,8 +622,8 @@ export default function VentasPage() {
             <Box>
               <Typography variant="subtitle2" mb={1}>Desglose del pago</Typography>
               <Grid2 container spacing={2}>
-                {(['efectivo', 'transferencia', 'tarjeta_pos'] as MetodoPago[]).map(metodo => (
-                  <Grid2 size={4} key={metodo}>
+                {METODOS_MIXTOS.map(metodo => (
+                  <Grid2 size={{ xs: 6, sm: 3 }} key={metodo}>
                     <TextField fullWidth label={FORMAS_PAGO.find(m => m.value === metodo)?.label} type="number"
                       value={pagosMixtos[metodo]}
                       onChange={e => setPagosMixtos(prev => ({ ...prev, [metodo]: Math.max(0, Number(e.target.value)) }))} />
@@ -624,8 +636,9 @@ export default function VentasPage() {
             </Box>
           ) : (
             <Box>
-              <TextField inputRef={montoInputRef} fullWidth label="Monto recibido (editable)" type="number"
-                value={montoRecibido} onChange={e => setMontoRecibido(e.target.value)}
+              <TextField inputRef={montoInputRef} fullWidth
+                label={formaPago === 'efectivo' ? 'Monto recibido (editable)' : `Monto de ${FORMAS_PAGO.find(m => m.value === formaPago)?.label ?? 'pago'}`}
+                type="number" value={montoRecibido} onChange={e => setMontoRecibido(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') confirmCheckout() }} />
               <Button size="small" sx={{ mt: 1 }} onClick={() => setMontoRecibido(String(totalConIva))}>Usar total</Button>
               {vuelto > 0 && <Alert severity="success" sx={{ mt: 2 }}>Vuelto: <strong>{money(vuelto)}</strong></Alert>}

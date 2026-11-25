@@ -82,6 +82,7 @@ export default function CajaHistorialPage() {
                 <TableCell align="right">Efectivo</TableCell>
                 <TableCell align="right">Transfer.</TableCell>
                 <TableCell align="right">Tarjetas</TableCell>
+                <TableCell align="right">Cheques</TableCell>
                 <TableCell align="right">Ventas</TableCell>
                 <TableCell align="right">Gastos</TableCell>
                 <TableCell align="right">Esperado</TableCell>
@@ -105,6 +106,7 @@ export default function CajaHistorialPage() {
                     <TableCell align="right">{money(c.efectivo_total ?? 0)}</TableCell>
                     <TableCell align="right">{money(c.transferencia_total ?? 0)}</TableCell>
                     <TableCell align="right">{money(c.tarjeta_total ?? 0)}</TableCell>
+                    <TableCell align="right">{money(c.cheque_total ?? 0)}</TableCell>
                     <TableCell align="right" sx={{ color: 'success.main' }}>{money(c.ventas_total)}</TableCell>
                     <TableCell align="right" sx={{ color: 'error.main' }}>{money(c.gastos_total)}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>{money(c.monto_final_esperado)}</TableCell>
@@ -180,6 +182,7 @@ export default function CajaHistorialPage() {
                 <Chip variant="outlined" size="small" label={`Efectivo ${money(selected.efectivo_total ?? 0)}`} />
                 <Chip variant="outlined" size="small" label={`Transferencia ${money(selected.transferencia_total ?? 0)}`} />
                 <Chip variant="outlined" size="small" label={`Tarjeta ${money(selected.tarjeta_total ?? 0)}`} />
+                <Chip variant="outlined" size="small" label={`Cheque ${money(selected.cheque_total ?? 0)}`} />
               </Box>
 
               {arqueo && (

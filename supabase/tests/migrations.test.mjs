@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const defaults = readFileSync(join(root, 'migrations/0007_defaults.sql'), 'utf8')
+const cheques = readFileSync(join(root, 'migrations/0009_cheques.sql'), 'utf8')
 
 function bloque(tabla) {
   const inicio = defaults.indexOf(`alter table public.${tabla}`)
@@ -36,4 +37,11 @@ test('la configuración de empresa se siembra cuando no existe', () => {
 test('las FK obligatorias no reciben defaults que oculten errores', () => {
   assert.doesNotMatch(bloque('clientes_proveedor'), /cliente_id/)
   assert.doesNotMatch(bloque('compras_detallecompra'), /compra_id set default/)
+})
+
+test('v_cajas expone cheques sin sumarlos al efectivo esperado', () => {
+  assert.match(cheques, /p\.metodo = 'cheque'/)
+  assert.match(cheques, /as cheque_total/)
+  assert.match(cheques, /c\.monto_inicial \+ r\.efectivo_total - r\.gastos_total as monto_final_esperado/)
+  assert.match(cheques, /create view public\.v_cajas/)
 })

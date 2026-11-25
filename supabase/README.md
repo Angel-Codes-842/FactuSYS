@@ -24,10 +24,12 @@ Implementación del primer corte de la migración: esquema, Reglas de Seguridad 
 | `migrations/0005_creacion_compuesta.sql` | RPCs para crear compras, presupuestos y autofacturas con `detalles` anidados; bucket público `empresa` para el logo. |
 | `migrations/0006_api_grants.sql` | Refuerzo final de `GRANT`s (corrige el bug de exclusión de tablas sensibles de `0001`). |
 | `migrations/0007_defaults.sql` | Defaults de `NOT NULL` que antes aplicaba el ORM de Django; sin esto fallan los altas genéricas vía PostgREST (por ejemplo proveedores). |
+| `migrations/0008_pos_caja.sql` | Pagos mixtos del POS, arqueo con billetes/monedas, cajas pendientes, reapertura y corrección de apertura; recrea `v_cajas`. |
+| `migrations/0009_cheques.sql` | Agrega `cheque` al desglose de `v_cajas` (no suma al efectivo esperado) y recrea `caja_pendientes()`. |
 | `functions/factpy-emitter/` | Builders de payloads, cliente `multipart/form-data`, reintentos y Edge Function autenticada. |
 | `functions/factusys-admin/` | Alta, edición y baja lógica de usuarios, con verificación de admin y guardas de último administrador. |
 | `functions/factusys-reportes/` | Impresión HTML y PDF de facturas/tickets desde `v_facturas_detalle` y `v_empresa_config`. |
-| `tests/` | 16 pruebas Node sin red (`node --test tests`). |
+| `tests/` | 21 pruebas Node sin red (`node --test tests`). |
 
 ## Aplicación manual en el SQL Editor (sin CLI)
 
@@ -43,8 +45,10 @@ No hace falta Supabase CLI ni MCP para crear el esquema. En un proyecto Supabase
 | 6 | `migrations/0005_creacion_compuesta.sql` | Creación con detalles anidados y bucket público `empresa`. |
 | 7 | `migrations/0006_api_grants.sql` | Refuerzo final de `GRANT`s y `notify pgrst, 'reload config'`. |
 | 8 | `migrations/0007_defaults.sql` | Defaults de columnas `NOT NULL` (`activo`, `creado`, `fecha`, etc.) que el ORM de Django completaba. Corre el alta de proveedores/clientes/gastos. |
+| 9 | `migrations/0008_pos_caja.sql` | POS con pagos mixtos, arqueo de caja, cajas pendientes, reapertura y corrección de apertura. |
+| 10 | `migrations/0009_cheques.sql` | Cheques en el desglose de caja; no cuentan como efectivo para el arqueo. |
 
-Si ya tenés el esquema aplicado, alcanza con correr **solo `0007_defaults.sql`**; es idempotente y no recrea tablas.
+Si ya tenés el esquema aplicado hasta `0007`, corré **`0008_pos_caja.sql`** y después **`0009_cheques.sql`**; ambos son idempotentes y no recrean tablas (sí recrean la vista `v_cajas`).
 
 Notas:
 

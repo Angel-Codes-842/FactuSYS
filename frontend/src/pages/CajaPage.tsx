@@ -16,6 +16,7 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import MoneyOffIcon from '@mui/icons-material/MoneyOff'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import WarningIcon from '@mui/icons-material/Warning'
 import { ConfirmDialog, EmptyState, LoadingState } from '../components/SharedComponents'
 import {
@@ -65,10 +66,8 @@ export default function CajaPage() {
   const [snack, setSnack] = useState('')
   const [confirmDeleteGasto, setConfirmDeleteGasto] = useState<any>(null)
 
-  const totalContado = useMemo(() => DENOMINACIONES.reduce(
-    (suma, denomination) => suma + denomination * Number(conteo[denomination] ?? 0), 0), [conteo])
   const esperadoObjetivo = Number(cajaObjetivo?.monto_final_esperado ?? 0)
-  const diferencia = totalContado - esperadoObjetivo
+  const esperadoActual = Number(caja?.monto_final_esperado ?? 0)
 
   const movimientos = useMemo(() => {
     if (!caja?.fecha_apertura) return []
@@ -98,24 +97,26 @@ export default function CajaPage() {
     setOpenCerrar(true)
   }
 
-  const cerrar = async () => {
-    if (!cajaObjetivo) return
+  const cerrar = async (objetivo: any = cajaObjetivo) => {
+    if (!objetivo) return
     try {
       if (modoCierre === 'arqueo') {
         const resultado: any = await registrarArqueo.mutateAsync({
-          id: cajaObjetivo.id,
+          id: objetivo.id,
           data: { denominaciones: conteo, observaciones },
         })
         setSnack(`Caja cerrada. Diferencia: ${money(resultado?.diferencia ?? 0)}`)
       } else {
         await cerrarCaja.mutateAsync({
-          id: cajaObjetivo.id,
+          id: objetivo.id,
           data: { monto_final_real: Number(montoManual || 0), observaciones },
         })
         setSnack('Caja cerrada correctamente')
       }
       setOpenCerrar(false)
       setCajaObjetivo(null)
+      setConteo(Object.fromEntries(DENOMINACIONES.map(d => [d, 0])))
+      setObservaciones('')
     } catch (err: any) { setSnack(err.response?.data?.error ?? err.message ?? 'No se pudo cerrar la caja') }
   }
 
@@ -155,6 +156,7 @@ export default function CajaPage() {
     { label: 'Efectivo', valor: caja?.efectivo_total ?? 0, icon: <PointOfSaleIcon />, color: 'success.main', bg: '#e8f5e9' },
     { label: 'Transferencias', valor: caja?.transferencia_total ?? 0, icon: <AccountBalanceIcon />, color: 'info.main', bg: '#e3f2fd' },
     { label: 'Tarjetas', valor: caja?.tarjeta_total ?? 0, icon: <CreditCardIcon />, color: 'secondary.main', bg: '#f3e5f5' },
+    { label: 'Cheques', valor: caja?.cheque_total ?? 0, icon: <ReceiptLongIcon />, color: 'warning.main', bg: '#fff8e1' },
     { label: 'Ventas', valor: caja?.ventas_total, icon: <PointOfSaleIcon />, color: 'success.main', bg: '#e8f5e9' },
     { label: 'Gastos', valor: caja?.gastos_total, icon: <MoneyOffIcon />, color: 'error.main', bg: '#fce4ec' },
     { label: 'Saldo esperado', valor: caja?.monto_final_esperado, icon: <AccountBalanceIcon />, color: 'white', bg: 'primary.main' },
@@ -176,7 +178,6 @@ export default function CajaPage() {
                 setOpenEditar(true)
               }}>Corregir apertura</Button>
               <Button variant="contained" color="success" startIcon={<AddCircleIcon />} onClick={() => setOpenGasto(true)}>Agregar gasto</Button>
-              <Button variant="contained" color="warning" startIcon={<LockIcon />} onClick={() => prepararCierre(caja)}>Cerrar con arqueo</Button>
             </>
           )}
         </Box>
@@ -222,6 +223,39 @@ export default function CajaPage() {
               </Grid2>
             ))}
           </Grid2>
+
+          <Card variant="outlined" sx={{ mb: 2, borderColor: 'warning.main' }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap" mb={1}>
+                <Box>
+                  <Typography variant="h6">Cerrar caja con arqueo</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Esperado en efectivo: <strong>{money(esperadoActual)}</strong>. Ingresá solo la cantidad de billetes y monedas que hay físicamente en el cajón.
+                  </Typography>
+                </Box>
+                <FormControlLabel
+                  control={<Switch checked={modoCierre === 'arqueo'} onChange={e => setModoCierre(e.target.checked ? 'arqueo' : 'manual')} />}
+                  label="Contar billetes y monedas"
+                />
+              </Box>
+              {modoCierre === 'arqueo' ? (
+                <ConteoBilletes conteo={conteo} onChange={setConteo} esperado={esperadoActual} />
+              ) : (
+                <TextField fullWidth size="small" type="number" label="Monto final real (Gs.)"
+                  value={montoManual} onChange={e => setMontoManual(e.target.value)} />
+              )}
+              <TextField fullWidth size="small" margin="dense" label="Observaciones (opcional)" value={observaciones}
+                onChange={e => setObservaciones(e.target.value)} />
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                <Button color="inherit" onClick={() => {
+                  setConteo(Object.fromEntries(DENOMINACIONES.map(d => [d, 0])))
+                  setObservaciones('')
+                }}>Limpiar conteo</Button>
+                <Button variant="contained" color="warning" startIcon={<LockIcon />} onClick={() => cerrar(caja)}
+                  disabled={registrarArqueo.isPending || cerrarCaja.isPending}>Cerrar caja</Button>
+              </Box>
+            </CardContent>
+          </Card>
 
           <Grid2 container spacing={2} alignItems="flex-start">
             <Grid2 size={{ xs: 12, md: 7 }}>
@@ -302,7 +336,7 @@ export default function CajaPage() {
               </Card>
               <Alert severity="info">
                 El saldo esperado considera solo el efectivo cobrado: apertura + efectivo - gastos.
-                Transferencias y tarjetas se muestran aparte y no suman al arqueo.
+                Transferencias, tarjetas y cheques se muestran aparte y no suman al arqueo.
               </Alert>
             </Grid2>
           </Grid2>
@@ -331,21 +365,7 @@ export default function CajaPage() {
             label="Contar billetes y monedas" />
           <Divider sx={{ my: 1 }} />
           {modoCierre === 'arqueo' ? (
-            <>
-              <Typography variant="subtitle2" mb={1}>Cantidad de billetes y monedas</Typography>
-              <Grid2 container spacing={1}>
-                {DENOMINACIONES.map(d => (
-                  <Grid2 size={{ xs: 6, sm: 4, md: 3 }} key={d}>
-                    <TextField fullWidth size="small" label={`Gs. ${d.toLocaleString('es-PY')}`} type="number"
-                      value={conteo[d] ?? 0}
-                      onChange={e => setConteo(prev => ({ ...prev, [d]: Math.max(0, Number(e.target.value)) }))} />
-                  </Grid2>
-                ))}
-              </Grid2>
-              <Alert severity={diferencia === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
-                Total contado: <strong>{money(totalContado)}</strong> · Diferencia: <strong>{money(diferencia)}</strong>
-              </Alert>
-            </>
+            <ConteoBilletes conteo={conteo} onChange={setConteo} esperado={esperadoObjetivo} />
           ) : (
             <TextField fullWidth margin="dense" autoFocus type="number" label="Monto final real (Gs.)"
               value={montoManual} onChange={e => setMontoManual(e.target.value)} />
@@ -408,6 +428,36 @@ export default function CajaPage() {
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack('')}>
         <Alert severity="success" onClose={() => setSnack('')} sx={{ width: '100%' }}>{snack}</Alert>
       </Snackbar>
+    </Box>
+  )
+}
+
+function ConteoBilletes({
+  conteo, onChange, esperado,
+}: {
+  conteo: Record<number, number>
+  onChange: (conteo: Record<number, number>) => void
+  esperado: number
+}) {
+  const total = DENOMINACIONES.reduce((suma, denominacion) => suma + denominacion * Number(conteo[denominacion] ?? 0), 0)
+  const diferencia = total - esperado
+  return (
+    <Box>
+      <Typography variant="subtitle2" mb={1}>Cantidad de billetes y monedas en la caja</Typography>
+      <Grid2 container spacing={1}>
+        {DENOMINACIONES.map(d => (
+          <Grid2 size={{ xs: 6, sm: 4, md: 2 }} key={d}>
+            <TextField fullWidth size="small" type="number" label={`Gs. ${d.toLocaleString('es-PY')}`}
+              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              value={conteo[d] ?? 0}
+              onChange={e => onChange({ ...conteo, [d]: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+          </Grid2>
+        ))}
+      </Grid2>
+      <Alert severity={diferencia === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+        Total contado: <strong>{money(total)}</strong> · Esperado: <strong>{money(esperado)}</strong> ·{' '}
+        {diferencia === 0 ? 'Sin diferencia' : `${diferencia > 0 ? 'Sobra' : 'Falta'} ${money(Math.abs(diferencia))}`}
+      </Alert>
     </Box>
   )
 }
