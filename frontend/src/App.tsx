@@ -44,6 +44,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-password/confirm" element={<ResetPasswordConfirm />} />
       <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirm />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Dashboard />} />

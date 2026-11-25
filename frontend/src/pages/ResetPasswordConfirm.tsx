@@ -5,6 +5,7 @@ import {
 } from '@mui/material'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import api from '../services/api'
+import { esModoSupabase } from '../services/supabaseClient'
 
 export default function ResetPasswordConfirm() {
   const { uid, token } = useParams<{ uid: string, token: string }>()
@@ -30,11 +31,12 @@ export default function ResetPasswordConfirm() {
     setError('')
     setMessage('')
     try {
-      await api.post('/auth/usuarios/reset-password-confirm/', {
-        uidb64: uid,
-        token: token,
-        new_password: password
-      })
+      // Supabase maneja uid/token en el fragmento de la URL; Django necesita
+      // los parámetros de la ruta legacy /reset-password/:uid/:token.
+      const payload = esModoSupabase
+        ? { new_password: password }
+        : { uidb64: uid, token: token, new_password: password }
+      await api.post('/auth/usuarios/reset-password-confirm/', payload)
       setMessage('Contraseña actualizada correctamente. Redirigiendo al login...')
       setTimeout(() => navigate('/login'), 3000)
     } catch (err: any) {
