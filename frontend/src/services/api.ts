@@ -325,6 +325,7 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
       factura_id: Number(reporteMatch[1]),
       tipo: reporteMatch[2],
       formato: params.formato ?? 'a4',
+      copia: params.copia === '1' || params.copia === 'true',
     }, {}, config.responseType)
   }
 
@@ -386,7 +387,10 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
 
   // ----------------------------------------------------------- facturación ---
   if (pathname === '/facturacion/facturas/' && method === 'post') {
-    const id = await rpc('crear_factura', { p: data })
+    // El POS envía `pagos` con el desglose real. Sin pagos (altas desde otras
+    // pantallas) se mantiene crear_factura para no exigir la migración 0008.
+    const conPagos = Array.isArray(data?.pagos) && data.pagos.length > 0
+    const id = await rpc(conPagos ? 'crear_factura_pos' : 'crear_factura', { p: data })
     return { data: await detalle('v_facturas_detalle', id) }
   }
   const facturaAccion = pathname.match(/^\/facturacion\/facturas\/(\d+)\/(anular|crear-nota|registrar_pago)\/?$/)
@@ -440,11 +444,18 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
 
   // ------------------------------------------------------------------ caja ---
   if (pathname === '/caja/cajas/actual/' && method === 'get') {
-    const { data: rows, error } = await client.from('caja_caja').select('*')
+    // v_cajas calcula ventas_total, gastos_total y monto_final_esperado, igual
+    // que el serializer de Django. La tabla cruda no los tiene.
+    const { data: rows, error } = await client.from('v_cajas').select('*')
       .eq('estado', 'abierta').order('fecha_apertura', { ascending: false }).limit(1)
     if (error) httpError(400, { error: error.message })
     if (!rows?.length) httpError(404, { error: 'No hay caja abierta' })
     return { data: rows[0] }
+  }
+  if (pathname === '/caja/cajas/pendientes/' && method === 'get') {
+    const pendientes = await rpc('caja_pendientes', {})
+    const rows = Array.isArray(pendientes) ? pendientes : []
+    return { data: { count: rows.length, results: rows } }
   }
   if (pathname === '/caja/cajas/abrir/' && method === 'post') {
     const id = await rpc('abrir_caja', {
@@ -452,13 +463,54 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
       p_sucursal_id: data?.sucursal ? Number(data.sucursal) : null,
       p_observaciones: data?.observaciones ?? '',
     })
-    return { data: await detalle('caja_caja', id) }
+    return { data: await detalle('v_cajas', id) }
+  }
+  const arqueoMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/arqueo\/?$/)
+  if (arqueoMatch && method === 'post') {
+    const resultado = await rpc('registrar_arqueo', {
+      p_caja_id: Number(arqueoMatch[1]),
+      p_denominaciones: data?.denominaciones ?? {},
+      p_observaciones: data?.observaciones ?? '',
+    })
+    return { data: resultado }
+  }
+  const reabrirMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/reabrir\/?$/)
+  if (reabrirMatch && method === 'post') {
+    await rpc('reabrir_caja', {
+      p_caja_id: Number(reabrirMatch[1]),
+      p_motivo: data?.motivo ?? '',
+    })
+    return { data: await detalle('v_cajas', reabrirMatch[1]) }
+  }
+  const aperturaMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/apertura\/?$/)
+  if (aperturaMatch && method === 'patch') {
+    const anterior = await detalle('v_cajas', aperturaMatch[1])
+    const resultado = await rpc('editar_apertura_caja', {
+      p_caja_id: Number(aperturaMatch[1]),
+      p_monto_inicial: Number(data?.monto_inicial ?? 0),
+      p_motivo: data?.motivo ?? '',
+    })
+    return { data: { ...anterior, ...(resultado ?? {}), monto_inicial: Number(data?.monto_inicial ?? 0) } }
+  }
+  if (pathname === '/caja/arqueos/' && method === 'get') {
+    let q = client.from('caja_arqueo').select('*', { count: 'exact' })
+    if (params.caja) q = q.eq('caja_id', Number(params.caja))
+    q = q.order('creado', { ascending: false }).limit(Number(params.page_size ?? 1000))
+    const { data: rows, error, count } = await q
+    if (error) httpError(400, { error: error.message })
+    return { data: { count: count ?? rows?.length ?? 0, results: rows ?? [] } }
   }
   const cierreMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/cerrar\/?$/)
   if (cierreMatch && method === 'post') {
+    const caja = await detalle('v_cajas', cierreMatch[1])
+    const real = data?.monto_final_real
+    // Django cierra con el esperado cuando no se informa el monto real.
+    const montoFinal = real === undefined || real === null || real === ''
+      ? Number(caja.monto_final_esperado ?? 0)
+      : Number(real)
     await rpc('cerrar_caja', {
       p_caja_id: Number(cierreMatch[1]),
-      p_monto_final_real: Number(data?.monto_final_real ?? 0),
+      p_monto_final_real: montoFinal,
       p_observaciones: data?.observaciones ?? '',
     })
     return { data: { status: 'Caja cerrada' } }
@@ -555,8 +607,66 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
   httpError(405, { error: `Método ${method} no soportado` })
 }
 
-function ejecutar(method: string, url: string, data?: any, config: Config = {}) {
-  if (!esModoSupabase) return legacy.request({ method, url, data, ...config })
+// Las acciones nuevas del POS/caja no existen en el Django de referencia.
+// Mientras ambos modos conviven, se traducen a sus endpoints legacy para que
+// las páginas reemplazadas sigan funcionando sin Service Worker ni JWT propio.
+async function legacyExtendido(method: string, url: string, data: any, config: Config) {
+  const { pathname } = parseUrl(url)
+
+  if (pathname === '/caja/cajas/pendientes/' && method === 'get') {
+    const res = await legacy.get('/caja/cajas/', config)
+    const filas = res.data.results ?? res.data ?? []
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    const pendientes = filas.filter((c: any) =>
+      c.estado === 'abierta' && new Date(c.fecha_apertura).getTime() < hoy.getTime())
+    return { ...res, data: { count: pendientes.length, results: pendientes } }
+  }
+
+  if (pathname === '/caja/arqueos/' && method === 'get') {
+    return { data: { count: 0, results: [] } }
+  }
+
+  const arqueoMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/arqueo\/?$/)
+  if (arqueoMatch && method === 'post') {
+    const denominaciones = data?.denominaciones ?? {}
+    const contado = Object.entries(denominaciones).reduce(
+      (suma, [valor, cantidad]) => suma + Number(valor) * Number(cantidad), 0)
+    const res = await legacy.post(`/caja/cajas/${arqueoMatch[1]}/cerrar/`, {
+      monto_final_real: contado,
+      observaciones: data?.observaciones ?? '',
+    })
+    const esperado = Number(res.data?.monto_final_esperado ?? 0)
+    return { data: { esperado, real: contado, diferencia: contado - esperado, denominaciones } }
+  }
+
+  const reabrirMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/reabrir\/?$/)
+  if (reabrirMatch && method === 'post') {
+    return legacy.patch(`/caja/cajas/${reabrirMatch[1]}/`, {
+      estado: 'abierta',
+      fecha_cierre: null,
+      monto_final_real: null,
+      usuario_cierre: null,
+    }, config)
+  }
+
+  const aperturaMatch = pathname.match(/^\/caja\/cajas\/(\d+)\/apertura\/?$/)
+  if (aperturaMatch && method === 'patch') {
+    const monto = Number(data?.monto_inicial ?? 0)
+    const anterior = await legacy.get(`/caja/cajas/${aperturaMatch[1]}/`, config)
+    const res = await legacy.patch(`/caja/cajas/${aperturaMatch[1]}/`, { monto_inicial: monto }, config)
+    return { data: { ...res.data, apertura_anterior: anterior.data.monto_inicial, apertura_nueva: monto } }
+  }
+
+  return null
+}
+
+function ejecutar(method: string, url: string, data?: any, config: Config = {}): Promise<any> {
+  if (!esModoSupabase) {
+    const extendido = legacyExtendido(method, url, data, config)
+    if (extendido) return extendido
+    return legacy.request({ method, url, data, ...config })
+  }
   return supabaseRequest(method, url, data, config)
 }
 

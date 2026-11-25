@@ -67,7 +67,7 @@ function array(valor: unknown): any[] {
   return Array.isArray(valor) ? valor : [];
 }
 
-function htmlFactura(f: any, config: any, formato: string) {
+function htmlFactura(f: any, config: any, formato: string, copia = false) {
   const ticket = formato === 'ticket';
   const detalles = array(f.detalles).map((d: any) => `
     <tr>
@@ -110,6 +110,8 @@ function htmlFactura(f: any, config: any, formato: string) {
   .pagos-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   .pagos-table th { background: #e9ecef; padding: 4px 6px; text-align: left; font-size: 10px; }
   .pagos-table td { padding: 3px 6px; border-bottom: 1px solid #eee; font-size: 10px; }
+  .copia { background: #fff3cd; border: 2px dashed #b45309; color: #92400e; text-align: center;
+    padding: 6px 10px; margin-bottom: 12px; font-weight: bold; letter-spacing: 1px; }
 </style>
 </head>
 <body>
@@ -121,6 +123,7 @@ function htmlFactura(f: any, config: any, formato: string) {
   ${f.timbrado_numero ? `<p><strong>Timbrado SET:</strong> ${esc(f.timbrado_numero)}</p>` : ''}
   <h2>${titulo} ${esc(f.numero)}</h2>
 </div>
+${copia ? '<div class="copia">COPIA · REIMPRESIÓN</div>' : ''}
 ${f.motivo_nota ? `<div class="motivo-nota"><strong>Motivo:</strong> ${esc(f.motivo_nota)}</div>` : ''}
 <table class="info-table">
   <tr><td class="label">Cliente:</td><td>${esc(f.cliente_nombre || 'Consumidor Final')}</td><td class="label">Fecha:</td><td>${esc(fecha(f.fecha_emision, true))}</td></tr>
@@ -148,7 +151,7 @@ window.onload = function () { window.print(); window.onafterprint = function () 
 </html>`;
 }
 
-async function pdfFactura(f: any, config: any, ticket: boolean) {
+async function pdfFactura(f: any, config: any, ticket: boolean, copia = false) {
   const doc = await PDFDocument.create();
   const normal = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -182,6 +185,7 @@ async function pdfFactura(f: any, config: any, ticket: boolean) {
     y -= size + 6;
   }
 
+  if (copia) linea('COPIA · REIMPRESIÓN', margen, ticket ? 12 : 14, bold, rgb(0.7, 0.35, 0.05));
   linea(config?.nombre || 'FactuSYS', margen, ticket ? 15 : 18, bold, azul);
   if (config?.ruc) linea(`RUC: ${config.ruc}`);
   if (config?.direccion) linea(config.direccion);
@@ -276,9 +280,10 @@ Deno.serve(async (req: Request) => {
     const formato = String(urlParams.get('formato') ?? body.formato ?? (factura.tipo === 'ticket' ? 'ticket' : 'a4'));
     const tipo = String(urlParams.get('tipo') ?? body.tipo ?? 'print');
 
-    if (tipo === 'pdf') return await pdfFactura(factura, config, formato === 'ticket');
+    const copia = body.copia === true;
+    if (tipo === 'pdf') return await pdfFactura(factura, config, formato === 'ticket', copia);
 
-    return new Response(htmlFactura(factura, config, formato), {
+    return new Response(htmlFactura(factura, config, formato, copia), {
       headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
     });
   } catch (error) {

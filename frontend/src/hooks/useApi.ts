@@ -118,10 +118,16 @@ export function useCrearFactura() {
 export function useAnularFactura() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.post(`/facturacion/facturas/${id}/anular/`),
+    mutationFn: (entrada: number | { id: number; motivo?: string }) => {
+      const id = typeof entrada === 'number' ? entrada : entrada.id
+      const motivo = typeof entrada === 'number' ? '' : (entrada.motivo ?? '')
+      return api.post(`/facturacion/facturas/${id}/anular/`, { motivo })
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['facturas'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['caja-actual'] })
+      qc.invalidateQueries({ queryKey: ['productos'] })
     },
   })
 }
@@ -371,6 +377,22 @@ export function useCajas() {
   })
 }
 
+export function useCajasPendientes() {
+  return useQuery({
+    queryKey: ['cajas-pendientes'],
+    queryFn: () => api.get('/caja/cajas/pendientes/').then(paginated),
+    staleTime: 30_000,
+  })
+}
+
+export function useArqueos(cajaId?: number | null) {
+  return useQuery({
+    queryKey: ['arqueos', cajaId],
+    queryFn: () => api.get('/caja/arqueos/', { params: { caja: cajaId } }).then(paginated),
+    enabled: !!cajaId,
+  })
+}
+
 export function useAbrirCaja() {
   const qc = useQueryClient()
   return useMutation({
@@ -386,6 +408,45 @@ export function useCerrarCaja() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data?: any }) => api.post(`/caja/cajas/${id}/cerrar/`, data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['caja-actual'] })
+      qc.invalidateQueries({ queryKey: ['cajas'] })
+    },
+  })
+}
+
+export function useRegistrarArqueo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      api.post(`/caja/cajas/${id}/arqueo/`, data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['caja-actual'] })
+      qc.invalidateQueries({ queryKey: ['cajas'] })
+      qc.invalidateQueries({ queryKey: ['cajas-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['arqueos'] })
+    },
+  })
+}
+
+export function useReabrirCaja() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, motivo }: { id: number; motivo?: string }) =>
+      api.post(`/caja/cajas/${id}/reabrir/`, { motivo: motivo ?? '' }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['caja-actual'] })
+      qc.invalidateQueries({ queryKey: ['cajas'] })
+      qc.invalidateQueries({ queryKey: ['cajas-pendientes'] })
+    },
+  })
+}
+
+export function useEditarAperturaCaja() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, monto_inicial, motivo }: { id: number; monto_inicial: number; motivo?: string }) =>
+      api.patch(`/caja/cajas/${id}/apertura/`, { monto_inicial, motivo: motivo ?? '' }).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['caja-actual'] })
       qc.invalidateQueries({ queryKey: ['cajas'] })
