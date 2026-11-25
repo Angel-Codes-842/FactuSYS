@@ -14,7 +14,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   token: string | null
-  login: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void> | void
   loading: boolean
 }
@@ -91,8 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esModoSupabase, token, cargarPerfil])
 
-  const login = async (username: string, password: string) => {
-    const r = await api.post('/auth/login/', { username, password })
+  const login = async (email: string, password: string) => {
+    // `username` se mantiene por el contrato del backend legacy (Django);
+    // en modo Supabase el adaptador prefiere `email`.
+    const r = await api.post('/auth/login/', { email, username: email, password })
     const { access, refresh } = r.data ?? {}
     if (!esModoSupabase) {
       localStorage.setItem('token', access)

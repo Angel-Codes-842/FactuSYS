@@ -81,11 +81,13 @@ Para el reset de contraseñas, configurar en **Authentication → URL Configurat
 
 La publishable key se obtiene en **Project Settings → API Keys** o, con el MCP autenticado, mediante `get_publishable_keys`.
 
-Primer administrador: las contraseñas PBKDF2 de Django no son importables a GoTrue. Creá el usuario desde **Authentication → Users → Add user** con este `User Metadata` inicial; el trigger `handle_new_user()` genera el perfil:
+Primer administrador: las contraseñas PBKDF2 de Django no son importables a GoTrue. Creá el usuario desde **Authentication → Users → Add user** con email y contraseña, y este `User Metadata` inicial:
 
 ```json
-{ "tipo": "admin", "username": "admin" }
+{ "tipo": "admin" }
 ```
+
+El login del SPA usa **correo + contraseña**; si se escribe un username legacy se resuelve por RPC. El trigger `handle_new_user()` genera el perfil con el `username` del metadata o, si falta, con la parte local del email.
 
 ## Conexión del agente a Supabase (MCP)
 

@@ -274,10 +274,15 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
 
   // ---------------------------------------------------------------- auth ---
   if (pathname === '/auth/login/' && method === 'post') {
-    const email = await rpc('email_por_username', { p_username: String(data?.username ?? '') })
-    if (!email) httpError(400, { error: 'Usuario o contraseña incorrectos' })
+    // El formulario envía correo. Si alguien escribe un username legacy se
+    // resuelve por RPC; con `@` se usa directamente, sin consulta extra.
+    const identificador = String(data?.email ?? data?.username ?? '').trim()
+    const email = identificador.includes('@')
+      ? identificador
+      : await rpc('email_por_username', { p_username: identificador })
+    if (!email) httpError(400, { error: 'Correo o contraseña incorrectos' })
     const { data: auth, error } = await client.auth.signInWithPassword({ email, password: String(data?.password ?? '') })
-    if (error) httpError(400, { error: 'Usuario o contraseña incorrectos' })
+    if (error) httpError(400, { error: 'Correo o contraseña incorrectos' })
     return { data: { access: auth.session?.access_token, refresh: auth.session?.refresh_token } }
   }
   if (pathname === '/auth/usuarios/me/' && method === 'get') {

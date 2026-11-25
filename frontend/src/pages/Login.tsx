@@ -7,7 +7,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Login() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,10 +19,10 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      await login(username, password)
+      await login(email, password)
       navigate('/')
     } catch {
-      setError('Usuario o contraseña incorrectos')
+      setError('Correo o contraseña incorrectos')
     } finally {
       setLoading(false)
     }
@@ -82,11 +82,13 @@ export default function Login() {
           
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Usuario" 
+              label="Correo electrónico"
+              type="email"
+              autoComplete="email"
               fullWidth
               variant="outlined"
-              value={username} 
-              onChange={e => setUsername(e.target.value)}
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               autoFocus required disabled={loading}
               sx={{ mb: 2 }}
             />
