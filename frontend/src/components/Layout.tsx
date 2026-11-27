@@ -102,6 +102,17 @@ export default function Layout() {
   const { mode, toggleColorMode } = useColorMode()
   const navigate = useNavigate()
   const location = useLocation()
+
+  const esSuperadmin = Boolean(user?.es_superadmin)
+  const isAdmin = user?.tipo === 'admin' || esSuperadmin
+  // El superadmin no navega al POS: su único menú es el panel de control.
+  const gruposVisibles: MenuGroup[] = esSuperadmin
+    ? [{
+        label: 'Control total',
+        defaultOpen: true,
+        children: groups.flatMap(g => g.children).filter(i => i.superadminOnly),
+      }]
+    : groups
   
   const [mobileOpen, setMobileOpen] = useState(false)
   const [cambiandoTenant, setCambiandoTenant] = useState(false)
@@ -110,7 +121,7 @@ export default function Layout() {
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
-    groups.forEach(g => {
+    gruposVisibles.forEach(g => {
       // Abrir si tiene defaultOpen=true, o si la ruta actual está en el grupo
       const hasActive = g.children.some(c => {
         if (c.path === '/') return location.pathname === '/'
@@ -122,6 +133,7 @@ export default function Layout() {
   })
 
   useEffect(() => {
+    if (esSuperadmin) return
     api.get('/empresa/configuracion/actual/').then(r => setConfig(r.data)).catch(() => {})
     api.get('/reportes/dashboard/').then(r => {
       let count = 0
@@ -129,7 +141,7 @@ export default function Layout() {
       // Podríamos agregar más validaciones aquí (caja sin abrir, timbrado por vencer)
       setAlertsCount(count)
     }).catch(() => {})
-  }, [location.pathname]) // Recargar al navegar
+  }, [location.pathname, esSuperadmin]) // Recargar al navegar
 
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
@@ -160,13 +172,10 @@ export default function Layout() {
     }
   }
 
-  const esSuperadmin = Boolean(user?.es_superadmin)
-  const isAdmin = user?.tipo === 'admin' || esSuperadmin
-
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Botón principal siempre visible */}
-      <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
+      {/* Botón principal siempre visible para operadores */}
+      {!esSuperadmin && <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
         <Button
           variant="contained"
           fullWidth
@@ -184,10 +193,10 @@ export default function Layout() {
         >
           Nueva Venta
         </Button>
-      </Box>
+      </Box>}
 
       <List sx={{ pt: 0, pb: 2, flexGrow: 1 }}>
-        {groups
+        {gruposVisibles
           .filter(g => {
             // Ocultar grupo Admin completo si es vendedor
             if (g.label === 'Administración' && !isAdmin) return false
@@ -240,7 +249,7 @@ export default function Layout() {
     </Box>
   )
 
-  const brandName = config?.nombre || 'FactuSYS'
+  const brandName = esSuperadmin ? 'FactuSYS · Control total' : config?.nombre || 'FactuSYS'
 
   return (
     <Box display="flex">
@@ -268,7 +277,7 @@ export default function Layout() {
           
           <Box sx={{ flexGrow: 1, display: { xs: 'block', sm: 'none' } }} />
 
-          {tenants.length > 1 && (
+          {!esSuperadmin && tenants.length > 1 && (
             <FormControl size="small" disabled={cambiandoTenant} sx={{ mr: 2, minWidth: 150 }}>
               <Select
                 value={user?.tenant_activo_id ?? tenants.find(t => t.activo)?.id ?? tenants[0].id}
@@ -296,13 +305,15 @@ export default function Layout() {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Notificaciones">
-            <IconButton color="inherit" sx={{ mr: 2 }} onClick={() => navigate('/')}>
-              <Badge badgeContent={alertsCount} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          {!esSuperadmin && (
+            <Tooltip title="Notificaciones">
+              <IconButton color="inherit" sx={{ mr: 2 }} onClick={() => navigate('/')}>
+                <Badge badgeContent={alertsCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
 
           <Avatar sx={{ width: 32, height: 32, bgcolor: 'rgba(255,255,255,0.2)', fontSize: '0.85rem', mr: 1, flexShrink: 0 }}>
             {(user?.first_name || user?.username || 'U')[0].toUpperCase()}

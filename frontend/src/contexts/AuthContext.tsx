@@ -26,7 +26,7 @@ interface AuthContextType {
   user: User | null
   token: string | null
   tenants: Tenant[]
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<User | null>
   logout: () => Promise<void> | void
   cambiarTenant: (tenantId: number) => Promise<void>
   loading: boolean
@@ -128,8 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(access ?? null)
     const userR = await api.get('/auth/usuarios/me/')
-    setUser(userR.data)
+    const perfil = userR.data ?? null
+    setUser(perfil)
     await cargarTenants()
+    return perfil
   }
 
   const cambiarTenant = async (tenantId: number) => {

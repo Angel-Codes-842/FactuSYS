@@ -19,8 +19,8 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      await login(email, password)
-      navigate('/')
+      const perfil = await login(email, password)
+      navigate(perfil?.es_superadmin ? '/superadmin' : '/')
     } catch {
       setError('Correo o contraseña incorrectos')
     } finally {

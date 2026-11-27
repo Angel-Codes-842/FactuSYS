@@ -50,10 +50,10 @@ productos en `tenant_id = 1` y `factusys_rpc` como dueño de las RPCs listadas.
 Pegá `supabase/migrations/0011_superadmin.sql` en el SQL Editor y ejecutalo.
 Si te devolvió `P0001: Solo un admin del tenant puede cambiar rol, sucursal,
 activo o tenant activo`, no quedó nada aplicado: la migración tiene
-`BEGIN`/`COMMIT` y se revertió entera. El SQL Editor setea un `auth.uid()` de
-sesión que no es admin del tenant, por eso el `UPDATE` de superadmin se hace
-con el trigger `proteger_perfil` desactivado y se reactiva al final. Actualizá
-el archivo con `git pull` y volvé a pegarlo completo.
+`BEGIN`/`COMMIT` y se revertió entera. Para no depender de qué `auth.uid()`
+tenga el SQL Editor, el `UPDATE` de superadmin se hace con el trigger
+`proteger_perfil` desactivado y se reactiva al final. Actualizá el archivo con
+`git pull` y volvé a pegarlo completo.
 Hace tres cosas:
 
 1. Marca `admin@gmail.com` como superadmin (`perfiles.es_superadmin`) y le da
@@ -62,8 +62,9 @@ Hace tres cosas:
    `registrar_documento_electronico` rechaza el registro y `factpy-emitter`
    devuelve `omitido: true, modo: "autoimpresa"`; la factura local sigue
    funcionando e imprimiéndose igual.
-3. Expone `es_superadmin` en `/auth/usuarios/me/` y abre el panel
-   `/superadmin` (menú **Administración → Panel Superadmin**).
+3. Expone `es_superadmin` en `/auth/usuarios/me/`. El superadmin entra
+   directo a `/superadmin` y **no ve el POS, la caja ni las páginas de
+   operación**: su único menú es **Control total → Panel Superadmin**.
 
 Verificación rápida:
 
@@ -75,16 +76,24 @@ select id, nombre, activo from public.tenants;
 select tenant_id, factpy_habilitado from public.empresa_configuracionempresa;
 ```
 
-Después del deploy de `factusys-superadmin`, desde el panel se puede:
+Después del deploy de `factusys-superadmin`, el panel tiene cinco pestañas:
 
-- crear empresas (crea también su configuración y la sucursal «Casa Matriz»),
-- dar de baja o reactivar empresas (baja lógica; no borra historial),
-- crear/editar/suspender memberships por empresa y rol,
-- alternar FactPy por empresa entre «Electrónica» y «Autoimpresa»,
-- «Entrar» a cualquier empresa activa con el selector de encabezado.
+- **Empresas**: crear, editar, dar de baja/reactivar, configurar RUC,
+  dirección, ciudad, rubro, formato de impresión y pie de factura; alternar
+  FactPy entre «Electrónica» y «Autoimpresa».
+- **Membresías**: crear/editar/suspender el acceso por empresa, rol y sucursal.
+- **Usuarios**: alta en Supabase Auth con contraseña, edición de correo,
+  contraseña, rol, empresa activa, estado y flag de superadmin; baja lógica.
+- **Sucursales**: alta, edición y baja lógica por empresa.
+- **Auditoría**: últimos 200 eventos, filtrables por empresa.
 
-No se puede suspender ni degradar al último administrador activo de una
-empresa. La baja de una empresa suspende sus memberships.
+Las bajas son lógicas (`activo = false`): no se borra historial ni auditoría.
+No se puede dar de baja la última empresa activa, suspender al último
+administrador de una empresa, ni quitarle el rol al último superadmin. El
+superadmin tampoco puede darse de baja a sí mismo.
+
+El superadmin puede trabajar sobre cualquier empresa desde el panel, pero no
+sale de él: si navega a otra ruta, la app lo devuelve a `/superadmin`.
 
 ## Alta de una segunda empresa
 

@@ -9,6 +9,7 @@ const defaults = readFileSync(join(root, 'migrations/0007_defaults.sql'), 'utf8'
 const cheques = readFileSync(join(root, 'migrations/0009_cheques.sql'), 'utf8')
 const tenants = readFileSync(join(root, 'migrations/0010_multitenant.sql'), 'utf8')
 const superadmin = readFileSync(join(root, 'migrations/0011_superadmin.sql'), 'utf8')
+const panelFunction = readFileSync(join(root, 'functions/factusys-superadmin/index.ts'), 'utf8')
 
 function bloque(tabla) {
   const inicio = defaults.indexOf(`alter table public.${tabla}`)
@@ -116,4 +117,23 @@ test('0011 desactiva FactPy por empresa y bloquea los documentos electrónicos',
   assert.match(superadmin, /where tenant_id = v_tenant_id and not factpy_habilitado/)
   assert.match(superadmin, /FactPy está deshabilitado para esta empresa/)
   assert.match(superadmin, /grant execute on function public\.registrar_documento_electronico\(jsonb, jsonb, bigint\) to service_role/)
+})
+
+test('factusys-superadmin administra empresas, memberships, usuarios, sucursales y auditoría', () => {
+  const acciones = [
+    'panel', 'empresa_crear', 'empresa_actualizar', 'empresa_eliminar',
+    'factpy_actualizar', 'miembro_crear', 'miembro_actualizar', 'miembro_eliminar',
+    'usuario_crear', 'usuario_actualizar', 'usuario_baja',
+    'sucursal_crear', 'sucursal_actualizar', 'sucursal_eliminar', 'auditoria',
+  ]
+  for (const accion of acciones) {
+    assert.match(panelFunction, new RegExp(`accion === '${accion}'`), `falta la acción ${accion}`)
+  }
+  assert.match(panelFunction, /Solo el superadmin puede usar este panel/)
+  assert.match(panelFunction, /validarUltimoAdmin/)
+  assert.match(panelFunction, /validarUltimoSuperadmin/)
+  assert.match(panelFunction, /No se puede dar de baja la última empresa activa/)
+  assert.match(panelFunction, /admin\.auth\.admin\.createUser/)
+  assert.match(panelFunction, /admin\.auth\.admin\.updateUserById/)
+  assert.match(panelFunction, /factpy_habilitado/)
 })

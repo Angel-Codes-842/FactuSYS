@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -34,10 +34,31 @@ import ResetPasswordConfirm from './pages/ResetPasswordConfirm'
 import SuperadminPage from './pages/SuperadminPage'
 import { CircularProgress, Box } from '@mui/material'
 
+function Cargando() {
+  return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>
+}
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>
+  if (loading) return <Cargando />
   return user ? <>{children}</> : <Navigate to="/login" />
+}
+
+// El superadmin no opera POS/caja: si entra a otra ruta, vuelve al panel.
+function SoloPanelSuperadmin() {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return <Cargando />
+  if (user?.es_superadmin && location.pathname !== '/superadmin') {
+    return <Navigate to="/superadmin" replace />
+  }
+  return <Layout />
+}
+
+function SoloSuperadmin({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Cargando />
+  return user?.es_superadmin ? <>{children}</> : <Navigate to="/" replace />
 }
 
 export default function App() {
@@ -47,7 +68,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/reset-password/confirm" element={<ResetPasswordConfirm />} />
       <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirm />} />
-      <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+      <Route path="/" element={<PrivateRoute><SoloPanelSuperadmin /></PrivateRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="proveedores" element={<ProveedoresPage />} />
@@ -75,7 +96,7 @@ export default function App() {
         <Route path="logistica/zonas" element={<ZonasPage />} />
         <Route path="logistica/notas-remision" element={<NotasRemisionPage />} />
         <Route path="autofacturas" element={<AutofacturasPage />} />
-        <Route path="superadmin" element={<SuperadminPage />} />
+        <Route path="superadmin" element={<SoloSuperadmin><SuperadminPage /></SoloSuperadmin>} />
       </Route>
     </Routes>
   )

@@ -389,6 +389,29 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
       },
     })
   }
+  if (pathname === '/superadmin/usuarios/' && method === 'post') {
+    return edge('factusys-superadmin', { accion: 'usuario_crear', datos: data })
+  }
+  const superUsuarioMatch = pathname.match(/^\/superadmin\/usuarios\/([^/]+)\/?$/)
+  if (superUsuarioMatch && (method === 'patch' || method === 'delete')) {
+    return edge('factusys-superadmin', {
+      accion: method === 'delete' ? 'usuario_baja' : 'usuario_actualizar',
+      datos: { user_id: decodeURIComponent(superUsuarioMatch[1]), ...data },
+    })
+  }
+  if (pathname === '/superadmin/sucursales/' && method === 'post') {
+    return edge('factusys-superadmin', { accion: 'sucursal_crear', datos: data })
+  }
+  const sucursalMatch = pathname.match(/^\/superadmin\/sucursales\/(\d+)\/?$/)
+  if (sucursalMatch && (method === 'patch' || method === 'delete')) {
+    return edge('factusys-superadmin', {
+      accion: method === 'delete' ? 'sucursal_eliminar' : 'sucursal_actualizar',
+      datos: { id: Number(sucursalMatch[1]), ...data },
+    })
+  }
+  if (pathname === '/superadmin/auditoria/' && method === 'get') {
+    return edge('factusys-superadmin', { accion: 'auditoria' })
+  }
 
   // ------------------------------------------------------------- reportes ---
   if (pathname === '/reportes/dashboard/' && method === 'get') {

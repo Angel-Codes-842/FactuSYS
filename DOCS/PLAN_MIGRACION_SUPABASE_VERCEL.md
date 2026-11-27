@@ -158,7 +158,7 @@ Traducciones activas:
 3. **Planes:** Supabase Pro y Vercel Pro si se quiere evitar pausas por inactividad; confirmar antes del cutover.
 4. **FactPy:** cuenta test, `recordID`, URL vigente y payload de ND; no hay emisiones reales hoy.
 5. **Paridad:** completar los tests pgTAP/Deno y comparar totales/stock con Django durante el piloto.
-6. **Multitenant:** `0010_multitenant.sql` ya aplicada en remoto; `0011_superadmin.sql` pendiente. Procedimiento y panel en `DOCS/MULTITENANT.md`.
+6. **Multitenant:** `0010_multitenant.sql` ya aplicada en remoto; `0011_superadmin.sql` pendiente. El superadmin queda confinado a `/superadmin` con control total de empresas, memberships, usuarios, sucursales, FactPy y auditoría. Procedimiento en `DOCS/MULTITENANT.md`.
 
 ---
 
