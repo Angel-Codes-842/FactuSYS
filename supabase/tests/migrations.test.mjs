@@ -12,6 +12,7 @@ const superadmin = readFileSync(join(root, 'migrations/0011_superadmin.sql'), 'u
 const jerarquia = readFileSync(join(root, 'migrations/0012_roles_hierarchy.sql'), 'utf8')
 const panelFunction = readFileSync(join(root, 'functions/factusys-superadmin/index.ts'), 'utf8')
 const adminFunction = readFileSync(join(root, 'functions/factusys-admin/index.ts'), 'utf8')
+const superadminPage = readFileSync(join(root, '../frontend/src/pages/SuperadminPage.tsx'), 'utf8')
 
 function bloque(tabla) {
   const inicio = defaults.indexOf(`alter table public.${tabla}`)
@@ -140,6 +141,15 @@ test('factusys-superadmin administra empresas, memberships, usuarios, sucursales
   assert.match(panelFunction, /factpy_habilitado/)
   assert.match(panelFunction, /nombre: 'Casa Matriz',[\s\S]{0,80}activo: true/)
   assert.doesNotMatch(panelFunction, /activa: true/)
+})
+
+test('el panel del superadmin crea, elimina y asigna roles por empresa', () => {
+  assert.match(superadminPage, /Nuevo administrador/)
+  assert.match(superadminPage, /Nuevo vendedor/)
+  assert.match(superadminPage, /cambiarRol/)
+  assert.match(superadminPage, /Eliminar usuario/)
+  assert.match(superadminPage, /baja lógica/)
+  assert.match(superadminPage, /tenant_id: empresaActual\?\.id/)
 })
 
 test('0012 quita el alta automática de superadmin y valida el tenant propio', () => {

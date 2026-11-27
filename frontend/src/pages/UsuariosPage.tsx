@@ -61,7 +61,7 @@ export default function UsuariosPage() {
     try {
       await eliminarUsuario.mutateAsync(id)
       setConfirmDelete(null)
-      setSnack('Usuario eliminado')
+      setSnack('Usuario eliminado de la empresa (baja lógica)')
     } catch {
       setSnack('Error al eliminar usuario')
     }
@@ -135,6 +135,9 @@ export default function UsuariosPage() {
             <Select value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})} fullWidth>
               {TIPOS_USUARIO.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
             </Select>
+            <Typography variant="caption" color="text.secondary">
+              Los administradores se asignan desde el panel Superadmin.
+            </Typography>
           </FormControl>
         </DialogContent>
         <DialogActions>

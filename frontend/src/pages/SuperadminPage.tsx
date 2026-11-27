@@ -103,6 +103,10 @@ export default function SuperadminPage() {
   const miembrosDe = (tenantId: any) =>
     (panel?.miembros ?? []).filter((m: any) => mismo(m.tenant_id, tenantId))
 
+  const rolDe = (tenantId: any, usuario: any) =>
+    miembrosDe(tenantId).find((m: any) => mismo(m.user_id, usuario.id))?.rol
+      ?? usuario.tipo ?? 'vendedor'
+
   const usuariosDe = (tenantId: any) => {
     const ids = new Set(miembrosDe(tenantId).map((m: any) => String(m.user_id)))
     return (panel?.usuarios ?? []).filter((u: any) =>
@@ -255,6 +259,20 @@ export default function SuperadminPage() {
     } catch (e) { setSnack(`Error: ${mensajeError(e)}`) }
   }
 
+  const cambiarRol = async (usuario: any, tipo: string) => {
+    try {
+      await api.patch(`/superadmin/usuarios/${encodeURIComponent(usuario.id)}/`, {
+        tenant_id: empresaActual?.id,
+        tipo,
+      })
+      setSnack(`Rol de ${usuario.username} cambiado a ${tipo === 'admin' ? 'administrador' : 'vendedor'}`)
+      await cargar()
+    } catch (e) {
+      setSnack(`Error: ${mensajeError(e)}`)
+      await cargar()
+    }
+  }
+
   // ----------------------------------------------------------- sucursales ---
   const abrirSucursal = (item?: any) => {
     const tenantId = item?.tenant_id ?? empresaId ?? panel?.tenants[0]?.id ?? ''
@@ -296,7 +314,7 @@ export default function SuperadminPage() {
         setSnack('Membresía suspendida')
       } else if (accion.tipo === 'usuario') {
         await api.delete(`/superadmin/usuarios/${encodeURIComponent(accion.item.id)}/`)
-        setSnack('Usuario dado de baja')
+        setSnack('Usuario eliminado (baja lógica)')
       } else if (accion.tipo === 'sucursal') {
         await api.delete(`/superadmin/sucursales/${accion.item.id}/`, {
           data: { tenant_id: accion.item.tenant_id },
@@ -508,7 +526,18 @@ export default function SuperadminPage() {
                   <TableCell>{u.email || '—'}</TableCell>
                   <TableCell>{u.username}</TableCell>
                   <TableCell>{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</TableCell>
-                  <TableCell><Chip size="small" label={u.tipo} variant="outlined" /></TableCell>
+                  <TableCell>
+                    <Select
+                      size="small"
+                      value={rolDe(empresaActual.id, u)}
+                      disabled={u.es_superadmin || u.id === user?.id}
+                      onChange={e => cambiarRol(u, e.target.value)}
+                      sx={{ minWidth: 125 }}
+                    >
+                      <MenuItem value="admin">Administrador</MenuItem>
+                      <MenuItem value="vendedor">Vendedor</MenuItem>
+                    </Select>
+                  </TableCell>
                   <TableCell align="center">
                     <Chip size="small" label={u.es_superadmin ? 'Sí' : 'No'} color={u.es_superadmin ? 'primary' : 'default'} />
                   </TableCell>
@@ -523,11 +552,11 @@ export default function SuperadminPage() {
                       disabled={u.id === user?.id}
                       onClick={() => setConfirmar({
                         tipo: 'usuario', item: u,
-                        titulo: 'Dar de baja usuario',
-                        mensaje: `¿Dar de baja a ${u.username}? Quedará sin acceso a todas las empresas.`,
+                        titulo: 'Eliminar usuario',
+                        mensaje: `¿Eliminar a ${u.username}? Se dará de baja lógica: perderá el acceso pero se conserva el historial.`,
                       })}
                     >
-                      Baja
+                      Eliminar
                     </Button>
                   </TableCell>
                 </TableRow>
