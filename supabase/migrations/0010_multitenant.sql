@@ -822,7 +822,10 @@ end $$;
 -- Hereda las políticas `to authenticated` sin dejar de ser un rol separado;
 -- auth.uid() sigue leyendo el claim del usuario real de la petición.
 grant authenticated to factusys_rpc;
+-- USAGE para resolver objetos y CREATE porque ALTER FUNCTION ... OWNER TO
+-- exige que el nuevo dueño pueda crear objetos en el schema de la función.
 grant usage on schema public, auth to factusys_rpc;
+grant create on schema public to factusys_rpc;
 grant execute on function auth.uid() to factusys_rpc;
 grant all privileges on all tables in schema public to factusys_rpc;
 grant all privileges on all sequences in schema public to factusys_rpc;

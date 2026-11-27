@@ -73,6 +73,7 @@ test('0010 filtra por tenant las vistas y las RPCs SECURITY DEFINER', () => {
   assert.match(tenants, /execute format\('grant factusys_rpc to %I', current_user\)/)
   assert.match(tenants, /grant authenticated to factusys_rpc/)
   assert.match(tenants, /grant usage on schema public, auth to factusys_rpc/)
+  assert.match(tenants, /grant create on schema public to factusys_rpc/)
   assert.match(tenants, /and p\.prosecdef\s+and p\.proname = any\(permitidas\)/)
   for (const rpc of ['crear_factura_pos', 'abrir_caja', 'registrar_arqueo', 'dashboard', 'siguiente_numero']) {
     assert.ok(tenants.includes(`'${rpc}'`), `falta ${rpc} en la lista de RPCs por tenant`)
