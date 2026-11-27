@@ -1,10 +1,12 @@
 # Multitenant real (multi-empresa)
 
-Estado: **implementado en local, pendiente de aplicar en Supabase remoto**.
+Estado: `0010_multitenant.sql` **ya aplicada en remoto**;
+`0011_superadmin.sql` **pendiente de aplicar**.
 
-La migración `supabase/migrations/0010_multitenant.sql` se ejecuta **después de
+La migración `supabase/migrations/0010_multitenant.sql` se ejecutó **después de
 `0009_cheques.sql`**. No edites `0000`–`0009`: ya están aplicadas y `0010` es
-aditiva e idempotente.
+aditiva e idempotente. `0011_superadmin.sql` va después de `0010` y también es
+idempotente.
 
 ## Qué hace
 
@@ -42,6 +44,41 @@ select proname, pg_get_userbyid(proowner) as owner
 
 El resultado esperado es un tenant `1`, una membresía por usuario, todos los
 productos en `tenant_id = 1` y `factusys_rpc` como dueño de las RPCs listadas.
+
+## Superadmin y panel de empresas (0011)
+
+Pegá `supabase/migrations/0011_superadmin.sql` en el SQL Editor y ejecutalo.
+Hace tres cosas:
+
+1. Marca `admin@gmail.com` como superadmin (`perfiles.es_superadmin`) y le da
+   acceso a cualquier empresa activa sin necesidad de membresía.
+2. Agrega `empresa_configuracionempresa.factpy_habilitado`. Con `false`, la RPC
+   `registrar_documento_electronico` rechaza el registro y `factpy-emitter`
+   devuelve `omitido: true, modo: "autoimpresa"`; la factura local sigue
+   funcionando e imprimiéndose igual.
+3. Expone `es_superadmin` en `/auth/usuarios/me/` y abre el panel
+   `/superadmin` (menú **Administración → Panel Superadmin**).
+
+Verificación rápida:
+
+```sql
+select email, es_superadmin, tenant_activo_id
+  from public.perfiles where lower(email) = 'admin@gmail.com';
+
+select id, nombre, activo from public.tenants;
+select tenant_id, factpy_habilitado from public.empresa_configuracionempresa;
+```
+
+Después del deploy de `factusys-superadmin`, desde el panel se puede:
+
+- crear empresas (crea también su configuración y la sucursal «Casa Matriz»),
+- dar de baja o reactivar empresas (baja lógica; no borra historial),
+- crear/editar/suspender memberships por empresa y rol,
+- alternar FactPy por empresa entre «Electrónica» y «Autoimpresa»,
+- «Entrar» a cualquier empresa activa con el selector de encabezado.
+
+No se puede suspender ni degradar al último administrador activo de una
+empresa. La baja de una empresa suspende sus memberships.
 
 ## Alta de una segunda empresa
 
@@ -84,8 +121,9 @@ nuevas lo pone el default cuando la inserción la hace el usuario autenticado.
 - Al cambiar, se llama `cambiar_tenant_activo(tenant_id)` y se recarga la SPA
   para descartar el cache de React Query. No hay que reescribir las páginas.
 - `/auth/usuarios/me/` ahora devuelve `tenant_activo_id`.
-- `/auth/tenants/` devuelve la lista de empresas del usuario y
-  `POST /auth/tenants/cambiar/` cambia la activa.
+- `/auth/tenants/` devuelve la lista de empresas del usuario (para el
+  superadmin, todas las activas) y `POST /auth/tenants/cambiar/` cambia la
+  activa.
 
 Si más adelante configurás un **Auth Hook** que inyecta `tenant_id` en el JWT,
 el claim gana sobre el perfil. En ese caso, después de `cambiar_tenant_activo`
@@ -100,21 +138,25 @@ Hook, así que manda el perfil.
 - El bucket de Storage `empresa` no está particionado por tenant: si dos
   empresas suben logo, usá nombres de archivo distintos o migrá a
   `empresa/<tenant_id>/`.
-- `factusys-admin`, `factusys-reportes` y `factpy-emitter` siguen pendientes de
-  **deploy**; las dos primeras y FactPy ya validan membresía en el código, pero
-  mientras no se desplieguen el remoto devuelve `404`.
+- `factusys-admin`, `factusys-reportes`, `factpy-emitter` y
+  `factusys-superadmin` siguen pendientes de **deploy**; mientras no se
+  desplieguen el remoto devuelve `404`. El panel aparece en el menú, pero la
+  carga fallará hasta que la función esté desplegada.
 - `factpy_sync_pendientes()` es una tarea global y no filtra por tenant: si se
   activa, debe hacerlo con una empresa por ejecución o pasar el tenant como
   parámetro.
 
 ## Verificación local ya ejecutada
 
-En la BD `factusys_debug` se aplicaron `0000`–`0010` y se verificó:
+En la BD `factusys_debug` se aplicaron `0000`–`0011` y se verificó:
 
 - POS, pagos mixtos, arqueo, cierre, reapertura y edición de apertura.
 - Tenant 2 no ve cajas ni productos del tenant 1.
 - Como tenant 2, `registrar_arqueo(1, ...)` falla con «Caja no encontrada o ya
   cerrada» y no escribe.
 - Un `receiptid` del tenant 2 no puede reescribirse con `p_tenant_id = 1`.
-- `node --test tests`: 24/24.
+- El superadmin entra al tenant 3 sin membresía y `current_tenant_rol()` es
+  `admin`.
+- Con `factpy_habilitado = false`, `registrar_documento_electronico` falla.
+- `node --test tests`: 27/27.
 - `npm run build` en `frontend/`: OK.

@@ -10,6 +10,7 @@ interface User {
   last_name: string
   tipo: string
   tenant_activo_id?: number | null
+  es_superadmin?: boolean
 }
 
 export interface Tenant {

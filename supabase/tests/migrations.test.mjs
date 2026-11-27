@@ -8,6 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const defaults = readFileSync(join(root, 'migrations/0007_defaults.sql'), 'utf8')
 const cheques = readFileSync(join(root, 'migrations/0009_cheques.sql'), 'utf8')
 const tenants = readFileSync(join(root, 'migrations/0010_multitenant.sql'), 'utf8')
+const superadmin = readFileSync(join(root, 'migrations/0011_superadmin.sql'), 'utf8')
 
 function bloque(tabla) {
   const inicio = defaults.indexOf(`alter table public.${tabla}`)
@@ -81,4 +82,30 @@ test('0010 filtra por tenant las vistas y las RPCs SECURITY DEFINER', () => {
   for (const helper of ['current_tenant_id', 'handle_new_user', 'auditar']) {
     assert.doesNotMatch(tenants, new RegExp(`'${helper}'\\s*[,)]`), `${helper} no debe cambiar de dueño`)
   }
+})
+
+test('0011 crea al superadmin y lo excluye de la validación de membresía', () => {
+  assert.match(superadmin, /add column if not exists es_superadmin boolean not null default false/)
+  assert.match(superadmin, /lower\(coalesce\(email, ''\)\) = 'admin@gmail.com'/)
+  assert.match(superadmin, /create or replace function public\.current_es_superadmin/)
+  assert.match(superadmin, /grant execute on function public\.current_es_superadmin\(\) to authenticated, service_role/)
+  assert.match(superadmin, /when public\.current_es_superadmin\(\) then 'admin'/)
+  assert.match(superadmin, /if public\.current_es_superadmin\(\) then[\s\S]*tenant_id = p_tenant_id and activo/)
+  assert.match(superadmin, /join super s on s\.es[\s\S]*t\.activo/)
+  assert.match(superadmin, /p\.es_superadmin/)
+  assert.match(superadmin, /v_es_superadmin boolean/)
+  assert.match(superadmin, /new\.id = auth\.uid\(\)[\s\S]*new\.tenant_activo_id is distinct from old\.tenant_activo_id/)
+})
+
+test('0011 permite al superadmin ver empresas y miembros sin ser miembro', () => {
+  assert.match(superadmin, /public\.current_es_superadmin\(\)\s+or id = public\.current_tenant_id\(\)/)
+  assert.match(superadmin, /public\.current_es_superadmin\(\)\s+or user_id = auth\.uid\(\)/)
+  assert.match(superadmin, /not public\.current_es_superadmin\(\)[\s\S]*tenant_miembros/)
+})
+
+test('0011 desactiva FactPy por empresa y bloquea los documentos electrónicos', () => {
+  assert.match(superadmin, /add column if not exists factpy_habilitado boolean not null default true/)
+  assert.match(superadmin, /where tenant_id = v_tenant_id and not factpy_habilitado/)
+  assert.match(superadmin, /FactPy está deshabilitado para esta empresa/)
+  assert.match(superadmin, /grant execute on function public\.registrar_documento_electronico\(jsonb, jsonb, bigint\) to service_role/)
 })

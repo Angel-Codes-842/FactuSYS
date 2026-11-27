@@ -104,6 +104,26 @@ Deno.serve(async (req: Request) => {
     const modo = env('FACTPY_MODE', 'mock').toLowerCase();
     const simulado = body.dry_run === true || modo === 'mock';
 
+    // Un tenant puede tener FactPy apagado: se sigue facturando, pero solo
+    // queda la factura autoimpresa y no se registra documento electrónico.
+    if (adminClient && tenantId) {
+      const { data: config } = await adminClient
+        .from('empresa_configuracionempresa')
+        .select('factpy_habilitado')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (config && config.factpy_habilitado === false) {
+        return json({
+          ok: true,
+          omitido: true,
+          motivo: 'factpy_deshabilitado',
+          modo: 'autoimpresa',
+          accion,
+          tenant_id: tenantId,
+        });
+      }
+    }
+
     let payload: Record<string, unknown>;
     let receiptid: string | null = null;
     let tipoDocumento = '';

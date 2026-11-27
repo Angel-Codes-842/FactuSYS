@@ -31,6 +31,7 @@ import NotasRemisionPage from './pages/NotasRemisionPage'
 import AutofacturasPage from './pages/AutofacturasPage'
 import ResetPassword from './pages/ResetPassword'
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm'
+import SuperadminPage from './pages/SuperadminPage'
 import { CircularProgress, Box } from '@mui/material'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="logistica/zonas" element={<ZonasPage />} />
         <Route path="logistica/notas-remision" element={<NotasRemisionPage />} />
         <Route path="autofacturas" element={<AutofacturasPage />} />
+        <Route path="superadmin" element={<SuperadminPage />} />
       </Route>
     </Routes>
   )

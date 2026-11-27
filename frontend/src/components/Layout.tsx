@@ -28,6 +28,7 @@ import WorkIcon from '@mui/icons-material/Work'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import StoreIcon from '@mui/icons-material/Store'
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
@@ -43,7 +44,7 @@ import api from '../services/api'
 
 const drawerWidth = 240
 
-type MenuItem = { text: string; icon: React.ReactNode; path: string; adminOnly?: boolean }
+type MenuItem = { text: string; icon: React.ReactNode; path: string; adminOnly?: boolean; superadminOnly?: boolean }
 type MenuGroup = { label: string; children: MenuItem[]; defaultOpen?: boolean }
 
 const groups: MenuGroup[] = [
@@ -91,6 +92,7 @@ const groups: MenuGroup[] = [
       { text: 'Auditoría', icon: <HistoryIcon />, path: '/auditoria', adminOnly: true },
       { text: 'Usuarios', icon: <AdminPanelSettingsIcon />, path: '/usuarios', adminOnly: true },
       { text: 'Configuración', icon: <SettingsIcon />, path: '/configuracion', adminOnly: true },
+      { text: 'Panel Superadmin', icon: <SupervisorAccountIcon />, path: '/superadmin', superadminOnly: true },
     ],
   },
 ]
@@ -158,7 +160,8 @@ export default function Layout() {
     }
   }
 
-  const isAdmin = user?.tipo === 'admin'
+  const esSuperadmin = Boolean(user?.es_superadmin)
+  const isAdmin = user?.tipo === 'admin' || esSuperadmin
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -191,8 +194,10 @@ export default function Layout() {
             return true
           })
           .map(group => {
-            // Filtrar ítems adminOnly para vendedor
-            const visibleItems = group.children.filter(item => !item.adminOnly || isAdmin)
+            // Filtrar ítems según el rol del usuario.
+            const visibleItems = group.children.filter(item =>
+              (!item.adminOnly || isAdmin) && (!item.superadminOnly || esSuperadmin)
+            )
             if (visibleItems.length === 0) return null
             const groupOpen = openGroups[group.label]
             return (

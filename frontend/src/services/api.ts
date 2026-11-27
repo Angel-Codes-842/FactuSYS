@@ -291,6 +291,21 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
   if (pathname === '/auth/tenants/' && method === 'get') {
     const { data: userData, error: userError } = await client.auth.getUser()
     if (userError || !userData.user) httpError(401, { error: 'Sesión no válida' })
+
+    // El superadmin ve todas las empresas activas aunque no sea miembro.
+    const yo: any = await rpc('usuario_me', {})
+    if (yo?.es_superadmin) {
+      const { data, error } = await client.from('tenants')
+        .select('id, nombre, ruc, activo').eq('activo', true).order('id')
+      if (error) httpError(400, { error: error.message })
+      return {
+        data: (data ?? []).map(t => ({
+          id: t.id, nombre: t.nombre, ruc: t.ruc ?? '',
+          rol: 'admin', sucursal_id: null, activo: true,
+        })),
+      }
+    }
+
     const { data, error } = await client.from('tenant_miembros')
       .select('tenant_id, rol, sucursal_id, activo, tenants ( id, nombre, ruc, activo )')
       .eq('user_id', userData.user.id)
@@ -335,6 +350,44 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
   if (pathname === '/auth/usuarios/' && method === 'post') {
     const r = await edge('factusys-admin', { accion: 'usuario_crear', datos: data })
     return r
+  }
+
+  // ----------------------------------------------------------- superadmin ---
+  if (pathname === '/superadmin/panel/' && method === 'get') {
+    return edge('factusys-superadmin', { accion: 'panel' })
+  }
+  if (pathname === '/superadmin/empresas/' && method === 'post') {
+    return edge('factusys-superadmin', { accion: 'empresa_crear', datos: data })
+  }
+  const empresaMatch = pathname.match(/^\/superadmin\/empresas\/(\d+)\/?$/)
+  if (empresaMatch) {
+    if (method === 'patch') {
+      return edge('factusys-superadmin', { accion: 'empresa_actualizar', datos: { ...data, id: Number(empresaMatch[1]) } })
+    }
+    if (method === 'delete') {
+      return edge('factusys-superadmin', { accion: 'empresa_eliminar', datos: { id: Number(empresaMatch[1]) } })
+    }
+  }
+  const factpyMatch = pathname.match(/^\/superadmin\/factpy\/(\d+)\/?$/)
+  if (factpyMatch && method === 'post') {
+    return edge('factusys-superadmin', {
+      accion: 'factpy_actualizar',
+      datos: { tenant_id: Number(factpyMatch[1]), factpy_habilitado: data?.factpy_habilitado },
+    })
+  }
+  if (pathname === '/superadmin/miembros/' && method === 'post') {
+    return edge('factusys-superadmin', { accion: 'miembro_crear', datos: data })
+  }
+  const miembroMatch = pathname.match(/^\/superadmin\/miembros\/(\d+)\/([^/]+)\/?$/)
+  if (miembroMatch && (method === 'patch' || method === 'delete')) {
+    return edge('factusys-superadmin', {
+      accion: method === 'delete' ? 'miembro_eliminar' : 'miembro_actualizar',
+      datos: {
+        tenant_id: Number(miembroMatch[1]),
+        user_id: decodeURIComponent(miembroMatch[2]),
+        ...data,
+      },
+    })
   }
 
   // ------------------------------------------------------------- reportes ---

@@ -39,3 +39,6 @@ verify_jwt = false
 
 [functions.factusys-reportes]
 verify_jwt = false
+
+[functions.factusys-superadmin]
+verify_jwt = false
