@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { publishableKey, secretKey } from '../_shared/keys.ts';
+import { resolverTenant } from '../_shared/tenant.ts';
 import {
   buildEstadoRequest,
   buildEvento,
@@ -28,6 +29,7 @@ async function registrarDocumento(
   respuesta: unknown,
   userId: string,
   metadata: Record<string, unknown>,
+  tenantId: number,
 ) {
   if (!adminClient || !payload.receiptid) return;
 
@@ -39,6 +41,7 @@ async function registrarDocumento(
       creado_por: userId,
     },
     p_respuesta: respuesta,
+    p_tenant_id: tenantId,
   });
 }
 
@@ -80,6 +83,7 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = serviceKey ? createClient(supabaseUrl, serviceKey) : null;
     let perfil: Record<string, unknown> | null = null;
+    let tenantId: number | null = null;
     if (adminClient) {
       const { data } = await adminClient
         .from('perfiles')
@@ -87,6 +91,12 @@ Deno.serve(async (req: Request) => {
         .eq('id', authData.user.id)
         .maybeSingle();
       perfil = data ?? null;
+
+      const tenant = await resolverTenant(adminClient, authData.user.id, token);
+      if (!tenant) {
+        return json({ ok: false, error: 'El usuario no pertenece a ninguna empresa activa' }, 403);
+      }
+      tenantId = tenant.tenantId;
     }
 
     const body = await req.json();
@@ -146,6 +156,7 @@ Deno.serve(async (req: Request) => {
           respuesta,
           authData.user.id,
           metadata,
+          tenantId as number,
         );
       } catch (error) {
         // Un rechazo funcional de SIFEN también debe quedar auditorizado con el
@@ -157,6 +168,7 @@ Deno.serve(async (req: Request) => {
             error.response,
             authData.user.id,
             metadata,
+            tenantId as number,
           );
         }
         throw error;
@@ -174,6 +186,7 @@ Deno.serve(async (req: Request) => {
             p_receiptid: estado.receiptid,
             p_estado: estado.estado,
             p_respuesta: estado,
+            p_tenant_id: tenantId,
           });
         }
       }

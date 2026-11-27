@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   AppBar, Toolbar, Typography, Drawer, List, ListItemButton,
   ListItemIcon, ListItemText, Box, Button, Collapse, Avatar,
-  IconButton, Badge, Tooltip,
+  IconButton, Badge, Tooltip, Select, MenuItem, FormControl,
 } from '@mui/material'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import PeopleIcon from '@mui/icons-material/People'
@@ -96,12 +96,13 @@ const groups: MenuGroup[] = [
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, tenants, cambiarTenant } = useAuth()
   const { mode, toggleColorMode } = useColorMode()
   const navigate = useNavigate()
   const location = useLocation()
   
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [cambiandoTenant, setCambiandoTenant] = useState(false)
   const [config, setConfig] = useState<any>(null)
   const [alertsCount, setAlertsCount] = useState(0)
 
@@ -146,6 +147,15 @@ export default function Layout() {
   const handleNavigate = (path: string) => {
     navigate(path)
     setMobileOpen(false)
+  }
+
+  const handleTenantChange = async (tenantId: number) => {
+    setCambiandoTenant(true)
+    try {
+      await cambiarTenant(tenantId)
+    } catch {
+      setCambiandoTenant(false)
+    }
   }
 
   const isAdmin = user?.tipo === 'admin'
@@ -252,6 +262,28 @@ export default function Layout() {
           </Typography>
           
           <Box sx={{ flexGrow: 1, display: { xs: 'block', sm: 'none' } }} />
+
+          {tenants.length > 1 && (
+            <FormControl size="small" disabled={cambiandoTenant} sx={{ mr: 2, minWidth: 150 }}>
+              <Select
+                value={user?.tenant_activo_id ?? tenants.find(t => t.activo)?.id ?? tenants[0].id}
+                onChange={e => handleTenantChange(Number(e.target.value))}
+                renderValue={value => tenants.find(t => t.id === Number(value))?.nombre ?? `Empresa ${value}`}
+                sx={{
+                  color: 'inherit',
+                  fontSize: '0.85rem',
+                  '& .MuiSelect-icon': { color: 'inherit' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
+                }}
+              >
+                {tenants.map(t => (
+                  <MenuItem key={t.id} value={t.id} disabled={!t.activo}>
+                    {t.nombre}{t.ruc ? ` — ${t.ruc}` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <Tooltip title="Cambiar tema">
             <IconButton color="inherit" onClick={toggleColorMode} sx={{ mr: 1 }}>

@@ -288,6 +288,32 @@ async function supabaseRequest(method: string, url: string, data?: any, config: 
   if (pathname === '/auth/usuarios/me/' && method === 'get') {
     return { data: await rpc('usuario_me', {}) }
   }
+  if (pathname === '/auth/tenants/' && method === 'get') {
+    const { data: userData, error: userError } = await client.auth.getUser()
+    if (userError || !userData.user) httpError(401, { error: 'Sesión no válida' })
+    const { data, error } = await client.from('tenant_miembros')
+      .select('tenant_id, rol, sucursal_id, activo, tenants ( id, nombre, ruc, activo )')
+      .eq('user_id', userData.user.id)
+    if (error) httpError(400, { error: error.message })
+    const lista = (data ?? []).map(m => {
+      const tenant = Array.isArray(m.tenants) ? m.tenants[0] : m.tenants
+      return {
+        id: m.tenant_id,
+        nombre: tenant?.nombre ?? `Empresa ${m.tenant_id}`,
+        ruc: tenant?.ruc ?? '',
+        rol: m.rol,
+        sucursal_id: m.sucursal_id,
+        activo: Boolean(m.activo && tenant?.activo),
+      }
+    })
+    return { data: lista }
+  }
+  if (pathname === '/auth/tenants/cambiar/' && method === 'post') {
+    const tenantId = Number(data?.tenant_id ?? data?.id)
+    if (!Number.isFinite(tenantId)) httpError(400, { error: 'Se requiere tenant_id' })
+    await rpc('cambiar_tenant_activo', { p_tenant_id: tenantId })
+    return { data: { tenant_id: tenantId } }
+  }
   if (pathname === '/auth/usuarios/reset-password/' && method === 'post') {
     const { error } = await client.auth.resetPasswordForEmail(String(data?.email ?? ''), {
       redirectTo: `${window.location.origin}/reset-password/confirm`,
@@ -656,6 +682,15 @@ async function legacyExtendido(method: string, url: string, data: any, config: C
     const anterior = await legacy.get(`/caja/cajas/${aperturaMatch[1]}/`, config)
     const res = await legacy.patch(`/caja/cajas/${aperturaMatch[1]}/`, { monto_inicial: monto }, config)
     return { data: { ...res.data, apertura_anterior: anterior.data.monto_inicial, apertura_nueva: monto } }
+  }
+
+  // Django sigue siendo mono-empresa: el adaptador expone un único tenant para
+  // que el selector no aparezca y el contrato del SPA sea el mismo en ambos modos.
+  if (pathname === '/auth/tenants/' && method === 'get') {
+    return { data: [{ id: 1, nombre: 'FactuSYS', ruc: '', rol: 'admin', sucursal_id: null, activo: true }] }
+  }
+  if (pathname === '/auth/tenants/cambiar/' && method === 'post') {
+    return { data: { tenant_id: Number(data?.tenant_id ?? data?.id ?? 1) } }
   }
 
   return null

@@ -9,13 +9,25 @@ interface User {
   first_name: string
   last_name: string
   tipo: string
+  tenant_activo_id?: number | null
+}
+
+export interface Tenant {
+  id: number
+  nombre: string
+  ruc?: string
+  rol: string
+  sucursal_id?: number | null
+  activo: boolean
 }
 
 interface AuthContextType {
   user: User | null
   token: string | null
+  tenants: Tenant[]
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void> | void
+  cambiarTenant: (tenantId: number) => Promise<void>
   loading: boolean
 }
 
@@ -26,18 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(
     esModoSupabase ? null : localStorage.getItem('token')
   )
+  const [tenants, setTenants] = useState<Tenant[]>([])
   const [loading, setLoading] = useState(true)
+
+  const cargarTenants = useCallback(async () => {
+    try {
+      const r = await api.get('/auth/tenants/')
+      setTenants(r.data ?? [])
+    } catch {
+      setTenants([])
+    }
+  }, [])
 
   const cargarPerfil = useCallback(async () => {
     try {
       const r = await api.get('/auth/usuarios/me/')
       setUser(r.data ?? null)
+      await cargarTenants()
       return true
     } catch {
       setUser(null)
+      setTenants([])
       return false
     }
-  }, [])
+  }, [cargarTenants])
 
   useEffect(() => {
     let activo = true
@@ -104,6 +128,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(access ?? null)
     const userR = await api.get('/auth/usuarios/me/')
     setUser(userR.data)
+    await cargarTenants()
+  }
+
+  const cambiarTenant = async (tenantId: number) => {
+    if (tenantId === user?.tenant_activo_id) return
+    await api.post('/auth/tenants/cambiar/', { tenant_id: tenantId })
+    // Las query keys no incluyen el tenant; recargar descarta todo el cache
+    // y vuelve a resolver CURRENT_TENANT_ID desde el perfil.
+    window.location.reload()
   }
 
   const logout = async () => {
@@ -116,10 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null)
     setToken(null)
+    setTenants([])
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, tenants, login, logout, cambiarTenant, loading }}>
       {children}
     </AuthContext.Provider>
   )

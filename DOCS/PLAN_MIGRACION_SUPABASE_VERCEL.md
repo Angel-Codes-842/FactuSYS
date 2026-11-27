@@ -158,6 +158,7 @@ Traducciones activas:
 3. **Planes:** Supabase Pro y Vercel Pro si se quiere evitar pausas por inactividad; confirmar antes del cutover.
 4. **FactPy:** cuenta test, `recordID`, URL vigente y payload de ND; no hay emisiones reales hoy.
 5. **Paridad:** completar los tests pgTAP/Deno y comparar totales/stock con Django durante el piloto.
+6. **Multitenant:** migración `0010_multitenant.sql` preparada y validada en local; aplicar en remoto siguiendo `DOCS/MULTITENANT.md` antes de crear la segunda empresa.
 
 ---
 

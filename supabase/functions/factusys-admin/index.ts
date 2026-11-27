@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { publishableKey, secretKey } from '../_shared/keys.ts';
+import { resolverTenant } from '../_shared/tenant.ts';
 
 class HttpError extends Error {
   status: number;
@@ -75,11 +76,10 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: perfilActual, error: perfilError } = await admin
-      .from('perfiles').select('tipo, activo').eq('id', auth.user.id).maybeSingle();
-    if (perfilError) throw new HttpError(perfilError.message, 500);
-    if (perfilActual?.tipo !== 'admin' || !perfilActual.activo) {
-      throw new HttpError('Solo un administrador puede gestionar usuarios', 403);
+    const tenant = await resolverTenant(admin, auth.user.id, jwt);
+    if (!tenant) throw new HttpError('El usuario no pertenece a ninguna empresa activa', 403);
+    if (tenant.rol !== 'admin') {
+      throw new HttpError('Solo un administrador de la empresa puede gestionar usuarios', 403);
     }
 
     const body = await req.json().catch(() => ({}));
@@ -113,22 +113,33 @@ Deno.serve(async (req: Request) => {
           first_name: texto(datos.first_name),
           last_name: texto(datos.last_name),
           tipo,
+          tenant_id: tenant.tenantId,
         },
       });
       if (crearError || !creado.user) throw new HttpError(crearError?.message ?? 'No se pudo crear el usuario', 400);
 
+      const activoNuevo = datos.is_active === undefined ? true : boolean(datos.is_active);
       const { error: perfilUpdateError } = await admin.from('perfiles').update({
         username,
         email,
         first_name: texto(datos.first_name),
         last_name: texto(datos.last_name),
         tipo,
-        activo: datos.is_active === undefined ? true : boolean(datos.is_active),
+        tenant_activo_id: tenant.tenantId,
+        activo: activoNuevo,
       }).eq('id', creado.user.id);
       if (perfilUpdateError) {
         await admin.auth.admin.deleteUser(creado.user.id);
         throw new HttpError(perfilUpdateError.message, 400);
       }
+
+      const { error: membresiaError } = await admin.from('tenant_miembros').upsert({
+        user_id: creado.user.id,
+        tenant_id: tenant.tenantId,
+        rol: tipo,
+        activo: activoNuevo,
+      }, { onConflict: 'user_id,tenant_id' });
+      if (membresiaError) throw new HttpError(membresiaError.message, 400);
 
       const { data: fila } = await admin.from('v_usuarios').select('*').eq('id', creado.user.id).single();
       return json(fila ?? {}, 201);
@@ -140,6 +151,9 @@ Deno.serve(async (req: Request) => {
         .from('perfiles').select('*').eq('id', id).maybeSingle();
       if (objetivoError) throw new HttpError(objetivoError.message, 500);
       if (!objetivo) throw new HttpError('Usuario no encontrado', 404);
+      const { data: objetivoMiembro } = await admin.from('tenant_miembros')
+        .select('rol, activo').eq('user_id', id).eq('tenant_id', tenant.tenantId).maybeSingle();
+      if (!objetivoMiembro) throw new HttpError('Usuario no encontrado en esta empresa', 404);
 
       const username = texto(datos.username || objetivo.username);
       if (!usernameValido(username)) throw new HttpError('El nombre de usuario no es válido');
@@ -151,11 +165,12 @@ Deno.serve(async (req: Request) => {
       const activo = datos.activo === undefined && datos.is_active === undefined
         ? objetivo.activo : boolean(datos.activo ?? datos.is_active);
 
-      if (objetivo.tipo === 'admin' && objetivo.activo && (tipo !== 'admin' || !activo)) {
-        const { count } = await admin.from('perfiles')
-          .select('id', { count: 'exact', head: true }).eq('tipo', 'admin').eq('activo', true);
+      if (objetivoMiembro.rol === 'admin' && objetivoMiembro.activo && (tipo !== 'admin' || !activo)) {
+        const { count } = await admin.from('tenant_miembros')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('tenant_id', tenant.tenantId).eq('rol', 'admin').eq('activo', true);
         if ((count ?? 0) <= 1) {
-          throw new HttpError('No se puede desactivar ni degradar al último administrador', 409);
+          throw new HttpError('No se puede desactivar ni degradar al último administrador de la empresa', 409);
         }
       }
 
@@ -193,6 +208,12 @@ Deno.serve(async (req: Request) => {
       }).eq('id', id);
       if (updateError) throw new HttpError(updateError.message, 400);
 
+      const { error: membresiaError } = await admin.from('tenant_miembros').update({
+        rol: tipo,
+        activo,
+      }).eq('user_id', id).eq('tenant_id', tenant.tenantId);
+      if (membresiaError) throw new HttpError(membresiaError.message, 400);
+
       const { data: fila } = await admin.from('v_usuarios').select('*').eq('id', id).single();
       return json(fila ?? {});
     }
@@ -200,31 +221,45 @@ Deno.serve(async (req: Request) => {
     if (accion === 'usuario_eliminar') {
       if (!id) throw new HttpError('Se requiere el id del usuario');
       if (id === auth.user.id) throw new HttpError('No podés eliminar tu propio usuario', 409);
-      const { data: objetivo, error: objetivoError } = await admin
-        .from('perfiles').select('tipo, activo').eq('id', id).maybeSingle();
+      const { data: objetivoMiembro, error: objetivoError } = await admin
+        .from('tenant_miembros')
+        .select('rol, activo').eq('user_id', id).eq('tenant_id', tenant.tenantId).maybeSingle();
       if (objetivoError) throw new HttpError(objetivoError.message, 500);
-      if (!objetivo) throw new HttpError('Usuario no encontrado', 404);
+      if (!objetivoMiembro) throw new HttpError('Usuario no encontrado en esta empresa', 404);
 
-      if (objetivo.tipo === 'admin' && objetivo.activo) {
-        const { count } = await admin.from('perfiles')
-          .select('id', { count: 'exact', head: true }).eq('tipo', 'admin').eq('activo', true);
+      if (objetivoMiembro.rol === 'admin' && objetivoMiembro.activo) {
+        const { count } = await admin.from('tenant_miembros')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('tenant_id', tenant.tenantId).eq('rol', 'admin').eq('activo', true);
         if ((count ?? 0) <= 1) {
-          throw new HttpError('No se puede eliminar al último administrador', 409);
+          throw new HttpError('No se puede eliminar al último administrador de la empresa', 409);
         }
       }
 
       // Baja lógica: borrar el auth.users rompería las FKs de auditoría y
-      // facturación. current_tipo() devuelve 'anon' para perfiles inactivos.
+      // facturación. Se desactiva la membresía actual; el perfil global solo
+      // se desactiva si el usuario no queda activo en otra empresa.
+      const { error: membresiaError } = await admin.from('tenant_miembros')
+        .update({ activo: false })
+        .eq('user_id', id).eq('tenant_id', tenant.tenantId);
+      if (membresiaError) throw new HttpError(membresiaError.message, 400);
+
+      const { data: otras, error: otrasError } = await admin.from('tenant_miembros')
+        .select('tenant_id').eq('user_id', id).eq('activo', true).limit(1);
+      if (otrasError) throw new HttpError(otrasError.message, 500);
+      const activoGlobal = (otras?.length ?? 0) > 0;
+
       const { error: updateError } = await admin.from('perfiles')
-        .update({ activo: false }).eq('id', id);
+        .update({ activo: activoGlobal }).eq('id', id);
       if (updateError) throw new HttpError(updateError.message, 400);
+
       const { data: authObjetivo } = await admin.auth.admin.getUserById(id);
       if (authObjetivo.user) {
         await admin.auth.admin.updateUserById(id, {
-          user_metadata: { ...(authObjetivo.user.user_metadata ?? {}), activo: false },
+          user_metadata: { ...(authObjetivo.user.user_metadata ?? {}), activo: activoGlobal },
         });
       }
-      return json({ id, activo: false });
+      return json({ id, tenant_id: tenant.tenantId, activo: activoGlobal });
     }
 
     throw new HttpError(`Acción no soportada: ${accion || '(vacía)'}`);
