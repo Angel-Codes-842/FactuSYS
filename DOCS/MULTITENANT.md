@@ -155,8 +155,23 @@ Hook, así que manda el perfil.
   `empresa/<tenant_id>/`.
 - `factusys-admin`, `factusys-reportes`, `factpy-emitter` y
   `factusys-superadmin` siguen pendientes de **deploy**; mientras no se
-  desplieguen el remoto devuelve `404`. El panel aparece en el menú, pero la
-  carga fallará hasta que la función esté desplegada.
+  desplieguen el remoto devuelve `404` y el navegador muestra un error de CORS
+  en el preflight (el `404` no tiene respuesta `ok`). La causa no es CORS: es
+  que la función no existe todavía.
+
+  Vía CLI (recomendada, respeta los imports de `_shared/`):
+
+  ```powershell
+  npx.cmd supabase login
+  npx.cmd supabase functions deploy factusys-admin --project-ref qihfzzewsufxwjnzhzqm --no-verify-jwt
+  npx.cmd supabase functions deploy factusys-reportes --project-ref qihfzzewsufxwjnzhzqm --no-verify-jwt
+  npx.cmd supabase functions deploy factpy-emitter --project-ref qihfzzewsufxwjnzhzqm --no-verify-jwt
+  npx.cmd supabase functions deploy factusys-superadmin --project-ref qihfzzewsufxwjnzhzqm --no-verify-jwt
+  ```
+
+  Si se despliega desde el Dashboard, pegar el archivo ya empaquetado (sin
+  imports relativos) de `supabase/dashboard-deploy/<nombre>.js` en cada
+  función y dejar *Verify JWT* desactivado.
 - `factpy_sync_pendientes()` es una tarea global y no filtra por tenant: si se
   activa, debe hacerlo con una empresa por ejecución o pasar el tenant como
   parámetro.
