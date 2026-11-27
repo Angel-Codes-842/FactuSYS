@@ -19,23 +19,6 @@ alter table public.perfiles
 alter table public.empresa_configuracionempresa
   add column if not exists factpy_habilitado boolean not null default true;
 
--- No se fuerza el tenant activo si el superadmin ya eligió otro.
-update public.perfiles
-   set es_superadmin = true,
-       tipo = 'admin',
-       activo = true,
-       tenant_activo_id = coalesce(tenant_activo_id, 1)
- where lower(coalesce(email, '')) = 'admin@gmail.com';
-
--- El superadmin también es admin de la empresa inicial, para que las vistas
--- legacy y las RPCs sigan funcionando igual apenas se aplica la migración.
-insert into public.tenant_miembros (user_id, tenant_id, rol, activo)
-select id, 1, 'admin', true
-  from public.perfiles
- where es_superadmin
-on conflict (user_id, tenant_id) do update
-   set rol = 'admin', activo = true;
-
 -- Asegura una configuración por empresa, incluso en proyectos donde 0007 se
 -- aplicó antes de que existiera el tenant 1.
 insert into public.empresa_configuracionempresa (
@@ -282,6 +265,13 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
+  -- El SQL Editor (postgres) y service_role no tienen JWT de usuario; son
+  -- contextos de confianza y deben poder mantener perfiles (lo usa también
+  -- factusys-admin).
+  if auth.uid() is null then
+    return new;
+  end if;
+
   -- El selector de empresa permite al propio usuario cambiar solo su tenant
   -- activo, incluso si no es admin de la empresa de origen.
   if new.id = auth.uid()
@@ -312,6 +302,24 @@ begin
   end if;
   return new;
 end $$;
+
+-- Ahora que el trigger permite las escrituras de mantenimiento, marcamos al
+-- superadmin. No se le fuerza el tenant activo si ya eligió otro.
+update public.perfiles
+   set es_superadmin = true,
+       tipo = 'admin',
+       activo = true,
+       tenant_activo_id = coalesce(tenant_activo_id, 1)
+ where lower(coalesce(email, '')) = 'admin@gmail.com';
+
+-- El superadmin también es admin de la empresa inicial, para que las vistas
+-- legacy y las RPCs sigan funcionando igual apenas se aplica la migración.
+insert into public.tenant_miembros (user_id, tenant_id, rol, activo)
+select id, 1, 'admin', true
+  from public.perfiles
+ where es_superadmin
+on conflict (user_id, tenant_id) do update
+   set rol = 'admin', activo = true;
 
 -- ---------------------------------------------------------------------------
 -- 4. FactPy se puede desactivar por empresa.

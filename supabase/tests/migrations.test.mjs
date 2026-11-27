@@ -95,6 +95,10 @@ test('0011 crea al superadmin y lo excluye de la validación de membresía', () 
   assert.match(superadmin, /p\.es_superadmin/)
   assert.match(superadmin, /v_es_superadmin boolean/)
   assert.match(superadmin, /new\.id = auth\.uid\(\)[\s\S]*new\.tenant_activo_id is distinct from old\.tenant_activo_id/)
+  assert.match(superadmin, /if auth\.uid\(\) is null then[\s\S]*return new/)
+  const trigger = superadmin.indexOf('create or replace function public.proteger_perfil()')
+  const alta = superadmin.indexOf("where lower(coalesce(email, '')) = 'admin@gmail.com'")
+  assert.ok(trigger > -1 && alta > trigger, 'El UPDATE de superadmin va después del trigger corregido')
 })
 
 test('0011 permite al superadmin ver empresas y miembros sin ser miembro', () => {
