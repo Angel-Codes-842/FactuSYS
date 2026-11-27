@@ -70,6 +70,7 @@ test('0010 pone tenant_id en todas las tablas de negocio y numera por tenant', (
 test('0010 filtra por tenant las vistas y las RPCs SECURITY DEFINER', () => {
   assert.match(tenants, /where e\.tenant_id = public\.current_tenant_id\(\)/)
   assert.match(tenants, /and f\.tenant_id = c\.tenant_id/)
+  assert.match(tenants, /execute format\('grant factusys_rpc to %I', current_user\)/)
   assert.match(tenants, /grant authenticated to factusys_rpc/)
   assert.match(tenants, /grant usage on schema public, auth to factusys_rpc/)
   assert.match(tenants, /and p\.prosecdef\s+and p\.proname = any\(permitidas\)/)

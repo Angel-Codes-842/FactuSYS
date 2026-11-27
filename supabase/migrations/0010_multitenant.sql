@@ -807,6 +807,16 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'factusys_rpc') then
     create role factusys_rpc nologin;
   end if;
+
+  -- ALTER ... OWNER exige poder SET ROLE al nuevo dueño. En Supabase el SQL
+  -- Editor corre como postgres, que no es miembro automático del rol recién
+  -- creado; en local puede ser otro usuario. Otorgarlo a quien ejecuta la
+  -- migración y a postgres cubre ambos casos.
+  execute format('grant factusys_rpc to %I', current_user);
+  if current_user <> 'postgres'
+     and exists (select 1 from pg_roles where rolname = 'postgres') then
+    grant factusys_rpc to postgres;
+  end if;
 end $$;
 
 -- Hereda las políticas `to authenticated` sin dejar de ser un rol separado;
