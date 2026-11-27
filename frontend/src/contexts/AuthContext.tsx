@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import api from '../services/api'
 import { esModoSupabase, supabase } from '../services/supabaseClient'
+import { debeRecargarPerfil } from './authSession'
 
 interface User {
   id: string | number
@@ -41,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [loading, setLoading] = useState(true)
+  const userIdRef = useRef<string | null>(null)
+  const cargaRef = useRef(0)
 
   const cargarTenants = useCallback(async () => {
     try {
@@ -54,67 +57,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cargarPerfil = useCallback(async () => {
     try {
       const r = await api.get('/auth/usuarios/me/')
-      setUser(r.data ?? null)
+      const perfil = r.data ?? null
+      userIdRef.current = perfil?.id != null ? String(perfil.id) : null
+      setUser(perfil)
       await cargarTenants()
       return true
     } catch {
+      userIdRef.current = null
       setUser(null)
       setTenants([])
       return false
     }
   }, [cargarTenants])
 
+  // Modo Supabase: una sola suscripción. `INITIAL_SESSION` entrega la sesión
+  // guardada; los eventos posteriores (SIGNED_IN al enfocar, TOKEN_REFRESHED,
+  // USER_UPDATED) NO deben vaciar el perfil: eso hacía que los guards sacaran
+  // al usuario al /login cada vez que cambiaba de pestaña.
   useEffect(() => {
+    if (!esModoSupabase || !supabase) return
     let activo = true
 
-    if (esModoSupabase && supabase) {
-      supabase.auth.getSession().then(async ({ data }) => {
-        if (!activo) return
-        const actual = data.session
-        setToken(actual?.access_token ?? null)
-        if (actual) await cargarPerfil()
-        if (activo) setLoading(false)
-      }).catch(() => {
-        if (activo) setLoading(false)
-      })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento, sesion) => {
+      if (!activo) return
+      setToken(sesion?.access_token ?? null)
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, session) => {
-        if (!activo) return
-        setToken(session?.access_token ?? null)
+      if (!sesion) {
+        cargaRef.current += 1
+        userIdRef.current = null
         setUser(null)
-        if (session) {
-          // Diferir la lectura: Supabase desaconseja llamadas al cliente
-          // directamente dentro del callback de onAuthStateChange.
-          Promise.resolve().then(() => cargarPerfil()).finally(() => {
-            if (activo) setLoading(false)
-          })
-        } else {
-          setLoading(false)
-        }
-      })
-
-      return () => {
-        activo = false
-        subscription.unsubscribe()
+        setTenants([])
+        setLoading(false)
+        return
       }
-    }
 
-    if (token) {
-      api.defaults.headers.Authorization = `Bearer ${token}`
-      api.get('/auth/usuarios/me/').then(r => {
-        setUser(r.data)
-      }).catch(() => {
-        localStorage.removeItem('token')
-        localStorage.removeItem('refresh')
-        delete api.defaults.headers.Authorization
-        setToken(null)
-      }).finally(() => setLoading(false))
-    } else {
-      setLoading(false)
+      // Mismo usuario (p. ej. SIGNED_IN al enfocar): conservar perfil y
+      // esperar a la carga en curso si la hubiera.
+      if (!debeRecargarPerfil(evento, sesion, userIdRef.current)) return
+
+      const carga = ++cargaRef.current
+      setLoading(true)
+      // Diferir la lectura: Supabase desaconseja llamadas al cliente dentro
+      // del callback de onAuthStateChange.
+      Promise.resolve()
+        .then(() => cargarPerfil())
+        .finally(() => {
+          if (activo && carga === cargaRef.current) setLoading(false)
+        })
+    })
+
+    return () => {
+      activo = false
+      subscription.unsubscribe()
     }
-    // En modo legacy el token gobierna el efecto; en Supabase lo hace el SDK.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [esModoSupabase, token, cargarPerfil])
+  }, [esModoSupabase, supabase, cargarPerfil])
+
+  // Modo legacy: el token en localStorage sigue gobernando el perfil.
+  useEffect(() => {
+    if (esModoSupabase) return
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    let activo = true
+    api.defaults.headers.Authorization = `Bearer ${token}`
+    api.get('/auth/usuarios/me/').then(r => {
+      if (activo) setUser(r.data)
+    }).catch(() => {
+      localStorage.removeItem('token')
+      localStorage.removeItem('refresh')
+      delete api.defaults.headers.Authorization
+      if (activo) {
+        setUser(null)
+        setToken(null)
+      }
+    }).finally(() => {
+      if (activo) setLoading(false)
+    })
+    return () => { activo = false }
+  }, [esModoSupabase, token])
 
   const login = async (email: string, password: string) => {
     // `username` se mantiene por el contrato del backend legacy (Django);
@@ -129,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(access ?? null)
     const userR = await api.get('/auth/usuarios/me/')
     const perfil = userR.data ?? null
+    cargaRef.current += 1
+    userIdRef.current = perfil?.id != null ? String(perfil.id) : null
     setUser(perfil)
     await cargarTenants()
     return perfil
@@ -150,6 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('refresh')
       delete api.defaults.headers.Authorization
     }
+    cargaRef.current += 1
+    userIdRef.current = null
     setUser(null)
     setToken(null)
     setTenants([])
