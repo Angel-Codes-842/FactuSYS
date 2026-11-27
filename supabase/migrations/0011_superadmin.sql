@@ -265,10 +265,13 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  -- El SQL Editor (postgres) y service_role no tienen JWT de usuario; son
-  -- contextos de confianza y deben poder mantener perfiles (lo usa también
-  -- factusys-admin).
-  if auth.uid() is null then
+  -- El SQL Editor y service_role son contextos de confianza y deben poder
+  -- mantener perfiles (lo usa también factusys-admin). En el SQL Editor
+  -- auth.uid() puede estar seteado por la sesión del Dashboard, por eso
+  -- también se valida el rol de base de datos.
+  if auth.uid() is null
+     or current_user in ('postgres', 'supabase_admin', 'service_role')
+     or pg_has_role(current_user, 'service_role', 'member') then
     return new;
   end if;
 
@@ -303,14 +306,20 @@ begin
   return new;
 end $$;
 
--- Ahora que el trigger permite las escrituras de mantenimiento, marcamos al
--- superadmin. No se le fuerza el tenant activo si ya eligió otro.
+-- El SQL Editor puede traer un JWT de sesión que no es admin del tenant, así
+-- que el UPDATE de mantenimiento se hace con el trigger desactivado. Se vuelve
+-- a activar en la misma transacción; si falla algo, el ROLLBACK lo restaura.
+alter table public.perfiles disable trigger proteger_perfil;
+
+-- No se le fuerza el tenant activo si el superadmin ya eligió otro.
 update public.perfiles
    set es_superadmin = true,
        tipo = 'admin',
        activo = true,
        tenant_activo_id = coalesce(tenant_activo_id, 1)
  where lower(coalesce(email, '')) = 'admin@gmail.com';
+
+alter table public.perfiles enable trigger proteger_perfil;
 
 -- El superadmin también es admin de la empresa inicial, para que las vistas
 -- legacy y las RPCs sigan funcionando igual apenas se aplica la migración.

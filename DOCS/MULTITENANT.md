@@ -48,10 +48,12 @@ productos en `tenant_id = 1` y `factusys_rpc` como dueño de las RPCs listadas.
 ## Superadmin y panel de empresas (0011)
 
 Pegá `supabase/migrations/0011_superadmin.sql` en el SQL Editor y ejecutalo.
-Si la primera versión te devolvió `P0001: Solo un admin del tenant puede
-cambiar rol, sucursal, activo o tenant activo`, no quedó nada aplicado: la
-migración tiene `BEGIN`/`COMMIT` y se revertió entera. Actualizá el archivo con
-`git pull` y volvé a pegarlo completo.
+Si te devolvió `P0001: Solo un admin del tenant puede cambiar rol, sucursal,
+activo o tenant activo`, no quedó nada aplicado: la migración tiene
+`BEGIN`/`COMMIT` y se revertió entera. El SQL Editor setea un `auth.uid()` de
+sesión que no es admin del tenant, por eso el `UPDATE` de superadmin se hace
+con el trigger `proteger_perfil` desactivado y se reactiva al final. Actualizá
+el archivo con `git pull` y volvé a pegarlo completo.
 Hace tres cosas:
 
 1. Marca `admin@gmail.com` como superadmin (`perfiles.es_superadmin`) y le da
