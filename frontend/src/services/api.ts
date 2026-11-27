@@ -782,10 +782,9 @@ function ejecutar(method: string, url: string, data?: any, config: Config = {}):
 }
 
 const api = {
-  defaults: {
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
-    headers: {} as Record<string, string>,
-  },
+  // Compartir la instancia evita que AuthContext escriba el token en un objeto
+  // distinto al que usa `legacy.request` (causa de 401 al recargar en legacy).
+  defaults: legacy.defaults,
   get: (url: string, config?: Config) => ejecutar('get', url, undefined, config),
   post: (url: string, data?: any, config?: Config) => ejecutar('post', url, data, config),
   patch: (url: string, data?: any, config?: Config) => ejecutar('patch', url, data, config),

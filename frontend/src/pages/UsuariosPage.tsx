@@ -10,19 +10,14 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import { LoadingState, EmptyState, ConfirmDialog } from '../components/SharedComponents'
-import { useUsuarios, useRoles, useCrearUsuario, useActualizarUsuario, useEliminarUsuario } from '../hooks/useApi'
+import { useUsuarios, useCrearUsuario, useActualizarUsuario, useEliminarUsuario } from '../hooks/useApi'
 
-const TIPOS_USUARIO = [
-  { value: 'admin', label: 'Administrador' },
-  { value: 'vendedor', label: 'Vendedor' },
-  { value: 'almacen', label: 'Almacén' },
-  { value: 'comprador', label: 'Comprador' },
-  { value: 'reportes', label: 'Reportes' },
-]
+// Los administradores y el superadmin se gestionan desde el panel global.
+const TIPOS_USUARIO = [{ value: 'vendedor', label: 'Vendedor' }]
+const gestionadoPorSuperadmin = (u: any) => u?.tipo === 'admin' || u?.es_superadmin
 
 export default function UsuariosPage() {
   const { data: usuarios, isLoading } = useUsuarios()
-  const { data: roles } = useRoles()
   const crearUsuario = useCrearUsuario()
   const actualizarUsuario = useActualizarUsuario()
   const eliminarUsuario = useEliminarUsuario()
@@ -108,8 +103,12 @@ export default function UsuariosPage() {
                   <TableCell><Chip label={TIPOS_USUARIO.find(t => t.value === u.tipo)?.label || u.tipo} size="small" variant="outlined" /></TableCell>
                   <TableCell align="center"><Chip label={u.is_active ? 'Sí' : 'No'} size="small" color={u.is_active ? 'success' : 'default'} /></TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleOpen(u)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => setConfirmDelete(u)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" disabled={gestionadoPorSuperadmin(u)} onClick={() => handleOpen(u)} title={gestionadoPorSuperadmin(u) ? 'Gestionado por el superadmin' : 'Editar'}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" color="error" disabled={gestionadoPorSuperadmin(u)} onClick={() => setConfirmDelete(u)} title={gestionadoPorSuperadmin(u) ? 'Gestionado por el superadmin' : 'Eliminar'}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}

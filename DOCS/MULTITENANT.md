@@ -1,12 +1,19 @@
 # Multitenant real (multi-empresa)
 
-Estado: `0010_multitenant.sql` **ya aplicada en remoto**;
-`0011_superadmin.sql` **pendiente de aplicar**.
+Estado: `0010_multitenant.sql`, `0011_superadmin.sql` y
+`0012_roles_hierarchy.sql` **ya aplicadas en remoto**. Después de `0012` hay que
+redesplegar `factusys-admin` y `factusys-superadmin` (ver *Deploy manual* más
+abajo) para que la jerarquía también se aplique en las Edge Functions.
 
 La migración `supabase/migrations/0010_multitenant.sql` se ejecutó **después de
 `0009_cheques.sql`**. No edites `0000`–`0009`: ya están aplicadas y `0010` es
-aditiva e idempotente. `0011_superadmin.sql` va después de `0010` y también es
-idempotente.
+aditiva e idempotente. `0011` y `0012` van después de `0010` y también son
+idempotentes.
+
+La jerarquía final es: **superadmin** (panel `/superadmin`, asigna admins por
+empresa) → **admin** (gestiona su empresa y crea vendedores) → **vendedor** (solo
+opera). `0012` quitó el alta automática de superadmin por email y validó el
+cambio de empresa activa contra las memberships.
 
 ## Qué hace
 
@@ -153,11 +160,12 @@ Hook, así que manda el perfil.
 - El bucket de Storage `empresa` no está particionado por tenant: si dos
   empresas suben logo, usá nombres de archivo distintos o migrá a
   `empresa/<tenant_id>/`.
-- `factusys-admin`, `factusys-reportes`, `factpy-emitter` y
-  `factusys-superadmin` siguen pendientes de **deploy**; mientras no se
-  desplieguen el remoto devuelve `404` y el navegador muestra un error de CORS
-  en el preflight (el `404` no tiene respuesta `ok`). La causa no es CORS: es
-  que la función no existe todavía.
+- Las cuatro Functions ya están desplegadas. Después del cambio de jerarquía,
+  **redesplegá `factusys-admin` y `factusys-superadmin`**; si se usa una versión
+  vieja, un admin todavía podría promover admins o modificar al superadmin.
+  Mientras una función no existe, el remoto devuelve `404` y el navegador
+  muestra un error de CORS en el preflight (el `404` no tiene respuesta `ok`).
+  La causa no es CORS: es que la función no existe.
 
   Vía CLI (recomendada, respeta los imports de `_shared/`):
 
@@ -178,7 +186,7 @@ Hook, así que manda el perfil.
 
 ## Verificación local ya ejecutada
 
-En la BD `factusys_debug` se aplicaron `0000`–`0011` y se verificó:
+En la BD `factusys_debug` se aplicaron `0000`–`0012` y se verificó:
 
 - POS, pagos mixtos, arqueo, cierre, reapertura y edición de apertura.
 - Tenant 2 no ve cajas ni productos del tenant 1.
@@ -188,5 +196,9 @@ En la BD `factusys_debug` se aplicaron `0000`–`0011` y se verificó:
 - El superadmin entra al tenant 3 sin membresía y `current_tenant_rol()` es
   `admin`.
 - Con `factpy_habilitado = false`, `registrar_documento_electronico` falla.
-- `node --test tests`: 27/27.
+- Un vendedor no puede poner `tenant_activo_id` en una empresa de la que no es
+  miembro, ni promoverse a admin; el superadmin sí puede elegir cualquier
+  empresa activa.
+- Un usuario creado con email `admin@gmail.com` ya no nace como superadmin.
+- `node --test tests`: 31/31.
 - `npm run build` en `frontend/`: OK.

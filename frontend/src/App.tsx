@@ -41,7 +41,16 @@ function Cargando() {
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return <Cargando />
-  return user ? <>{children}</> : <Navigate to="/login" />
+  return user ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+// Los admins gestionan su empresa; los vendedores solo operan. El superadmin
+// ya fue redirigido al panel por SoloPanelSuperadmin.
+function SoloAdmin({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Cargando />
+  if (user?.es_superadmin) return <Navigate to="/superadmin" replace />
+  return user?.tipo === 'admin' ? <>{children}</> : <Navigate to="/" replace />
 }
 
 // El superadmin no opera POS/caja: si entra a otra ruta, vuelve al panel.
@@ -82,11 +91,11 @@ export default function App() {
         <Route path="compras" element={<ComprasPage />} />
         <Route path="presupuestos" element={<PresupuestosPage />} />
         <Route path="caja/historial" element={<CajaHistorialPage />} />
-        <Route path="configuracion" element={<ConfiguracionPage />} />
-        <Route path="auditoria" element={<AuditoriaPage />} />
-        <Route path="usuarios" element={<UsuariosPage />} />
+        <Route path="configuracion" element={<SoloAdmin><ConfiguracionPage /></SoloAdmin>} />
+        <Route path="auditoria" element={<SoloAdmin><AuditoriaPage /></SoloAdmin>} />
+        <Route path="usuarios" element={<SoloAdmin><UsuariosPage /></SoloAdmin>} />
         <Route path="cuentas-corrientes" element={<CuentasCorrientesPage />} />
-        <Route path="vendedores" element={<VendedoresPage />} />
+        <Route path="vendedores" element={<SoloAdmin><VendedoresPage /></SoloAdmin>} />
         <Route path="puestos" element={<PuestosPage />} />
         <Route path="promociones" element={<PromocionesPage />} />
         <Route path="reglas-descuento" element={<ReglasDescuentoPage />} />

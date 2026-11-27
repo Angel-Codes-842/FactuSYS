@@ -29,10 +29,16 @@ function texto(valor: unknown) {
   return valor === null || valor === undefined ? '' : String(valor).trim();
 }
 
-function normalizarTipo(valor: unknown) {
-  // El formulario legacy ofrece almacén/comprador/reportes, pero el modelo
-  // de permisos de la migración tiene dos perfiles: admin y vendedor.
-  return texto(valor) === 'admin' ? 'admin' : 'vendedor';
+const EMAIL_SUPERADMIN = 'admin@gmail.com';
+
+function tipoDelFormulario(datos: Record<string, unknown>, actual = 'vendedor') {
+  // El superadmin asigna administradores desde su panel. Un admin de empresa
+  // solo puede crear/editar vendedores; pedir 'admin' aquí es una escalada.
+  const solicitado = texto(datos.tipo ?? datos.tipo_usuario);
+  if (solicitado === 'admin') {
+    throw new HttpError('Solo el superadmin puede asignar administradores', 403);
+  }
+  return actual;
 }
 
 function emailValido(email: string) {
@@ -102,8 +108,14 @@ Deno.serve(async (req: Request) => {
       let email = texto(datos.email).toLowerCase();
       if (!email) email = `${sanitizarUsername(username)}+${crypto.randomUUID().slice(0, 8)}@usuarios.factusys.local`;
       if (!emailValido(email)) throw new HttpError('El correo electrónico no es válido');
+      if (email === EMAIL_SUPERADMIN) {
+        throw new HttpError('Ese correo está reservado para el superadmin', 409);
+      }
 
-      const tipo = normalizarTipo(datos.tipo ?? datos.tipo_usuario ?? 'vendedor');
+      // Se ignoran tipos del formulario: el trigger no debe poder crear admins
+      // ni superadmins a pedido de un admin de empresa.
+      tipoDelFormulario(datos);
+      const tipo = 'vendedor';
       const { data: creado, error: crearError } = await admin.auth.admin.createUser({
         email,
         password,
@@ -154,6 +166,11 @@ Deno.serve(async (req: Request) => {
       const { data: objetivoMiembro } = await admin.from('tenant_miembros')
         .select('rol, activo').eq('user_id', id).eq('tenant_id', tenant.tenantId).maybeSingle();
       if (!objetivoMiembro) throw new HttpError('Usuario no encontrado en esta empresa', 404);
+      // El superadmin y los administradores se gestionan solo desde el panel
+      // global. Sin esto, un admin podía cambiar la clave del superadmin.
+      if (objetivo.es_superadmin || objetivoMiembro.rol === 'admin') {
+        throw new HttpError('Los administradores son gestionados por el superadmin', 403);
+      }
 
       const username = texto(datos.username || objetivo.username);
       if (!usernameValido(username)) throw new HttpError('El nombre de usuario no es válido');
@@ -161,7 +178,7 @@ Deno.serve(async (req: Request) => {
         .select('id').eq('username', username).neq('id', id).maybeSingle();
       if (repetido) throw new HttpError('Ese nombre de usuario ya está en uso', 409);
 
-      const tipo = normalizarTipo(datos.tipo ?? objetivo.tipo);
+      const tipo = tipoDelFormulario(datos, objetivo.tipo);
       const activo = datos.activo === undefined && datos.is_active === undefined
         ? objetivo.activo : boolean(datos.activo ?? datos.is_active);
 
@@ -175,6 +192,9 @@ Deno.serve(async (req: Request) => {
       }
 
       const emailRaw = texto(datos.email || objetivo.email || '').toLowerCase();
+      if (emailRaw === EMAIL_SUPERADMIN) {
+        throw new HttpError('Ese correo está reservado para el superadmin', 409);
+      }
       const email = emailValido(emailRaw) ? emailRaw : `${sanitizarUsername(username)}@usuarios.factusys.local`;
       const password = texto(datos.password);
       if (password && password.length < 8) throw new HttpError('La contraseña debe tener al menos 8 caracteres');
@@ -221,11 +241,17 @@ Deno.serve(async (req: Request) => {
     if (accion === 'usuario_eliminar') {
       if (!id) throw new HttpError('Se requiere el id del usuario');
       if (id === auth.user.id) throw new HttpError('No podés eliminar tu propio usuario', 409);
+      const { data: objetivoPerfil, error: perfilError } = await admin
+        .from('perfiles').select('es_superadmin').eq('id', id).maybeSingle();
+      if (perfilError) throw new HttpError(perfilError.message, 500);
       const { data: objetivoMiembro, error: objetivoError } = await admin
         .from('tenant_miembros')
         .select('rol, activo').eq('user_id', id).eq('tenant_id', tenant.tenantId).maybeSingle();
       if (objetivoError) throw new HttpError(objetivoError.message, 500);
       if (!objetivoMiembro) throw new HttpError('Usuario no encontrado en esta empresa', 404);
+      if (objetivoPerfil?.es_superadmin || objetivoMiembro.rol === 'admin') {
+        throw new HttpError('Los administradores son gestionados por el superadmin', 403);
+      }
 
       if (objetivoMiembro.rol === 'admin' && objetivoMiembro.activo) {
         const { count } = await admin.from('tenant_miembros')

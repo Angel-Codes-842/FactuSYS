@@ -81,7 +81,7 @@ const groups: MenuGroup[] = [
       { text: 'Logística', icon: <LocalShippingIcon />, path: '/logistica/notas-remision' },
       { text: 'Sucursales', icon: <StoreIcon />, path: '/sucursales' },
       { text: 'Transferencias', icon: <SwapHorizIcon />, path: '/transferencias' },
-      { text: 'Vendedores', icon: <BadgeIcon />, path: '/vendedores' },
+      { text: 'Vendedores', icon: <BadgeIcon />, path: '/vendedores', adminOnly: true },
       { text: 'Historial Caja', icon: <HistoryIcon />, path: '/caja/historial' },
     ],
   },

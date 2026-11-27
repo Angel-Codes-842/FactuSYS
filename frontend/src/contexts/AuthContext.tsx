@@ -62,7 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(perfil)
       await cargarTenants()
       return true
-    } catch {
+    } catch (error: any) {
+      // Un fallo de red/5xx al recargar no debe parecer un cierre de sesión:
+      // conservamos el perfil ya cargado y dejamos que RLS siga protegiendo
+      // los datos. Solo un 401/403 definitivo limpia la UI.
+      const definitivo = [401, 403].includes(error?.response?.status)
+      if (userIdRef.current && !definitivo) return false
       userIdRef.current = null
       setUser(null)
       setTenants([])
@@ -76,24 +81,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // al usuario al /login cada vez que cambiaba de pestaña.
   useEffect(() => {
     if (!esModoSupabase || !supabase) return
+    const client = supabase
     let activo = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento, sesion) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((evento, sesion) => {
       if (!activo) return
       setToken(sesion?.access_token ?? null)
 
       if (!sesion) {
-        cargaRef.current += 1
-        userIdRef.current = null
-        setUser(null)
-        setTenants([])
-        setLoading(false)
+        // Supabase a veces informa eventos sin sesión al reenfocar. Antes de
+        // vaciar la UI revalidamos el localStorage: solo un SIGNED_OUT real
+        // (o una sesión efectivamente caída) debe llevar al login.
+        Promise.resolve().then(async () => {
+          const { data } = await client.auth.getSession()
+          if (!activo) return
+          if (data.session) {
+            setToken(data.session.access_token)
+            setLoading(false)
+            return
+          }
+          cargaRef.current += 1
+          userIdRef.current = null
+          setUser(null)
+          setTenants([])
+          setLoading(false)
+        })
         return
       }
 
       // Mismo usuario (p. ej. SIGNED_IN al enfocar): conservar perfil y
       // esperar a la carga en curso si la hubiera.
-      if (!debeRecargarPerfil(evento, sesion, userIdRef.current)) return
+      if (!debeRecargarPerfil(evento, sesion, userIdRef.current)) {
+        if (userIdRef.current) setLoading(false)
+        return
+      }
 
       const carga = ++cargaRef.current
       setLoading(true)

@@ -9,7 +9,9 @@ const defaults = readFileSync(join(root, 'migrations/0007_defaults.sql'), 'utf8'
 const cheques = readFileSync(join(root, 'migrations/0009_cheques.sql'), 'utf8')
 const tenants = readFileSync(join(root, 'migrations/0010_multitenant.sql'), 'utf8')
 const superadmin = readFileSync(join(root, 'migrations/0011_superadmin.sql'), 'utf8')
+const jerarquia = readFileSync(join(root, 'migrations/0012_roles_hierarchy.sql'), 'utf8')
 const panelFunction = readFileSync(join(root, 'functions/factusys-superadmin/index.ts'), 'utf8')
+const adminFunction = readFileSync(join(root, 'functions/factusys-admin/index.ts'), 'utf8')
 
 function bloque(tabla) {
   const inicio = defaults.indexOf(`alter table public.${tabla}`)
@@ -136,4 +138,33 @@ test('factusys-superadmin administra empresas, memberships, usuarios, sucursales
   assert.match(panelFunction, /admin\.auth\.admin\.createUser/)
   assert.match(panelFunction, /admin\.auth\.admin\.updateUserById/)
   assert.match(panelFunction, /factpy_habilitado/)
+})
+
+test('0012 quita el alta automática de superadmin y valida el tenant propio', () => {
+  const alta = jerarquia.slice(
+    jerarquia.indexOf('create or replace function public.handle_new_user()'),
+    jerarquia.indexOf('create or replace function public.proteger_perfil()')
+  )
+  const perfil = jerarquia.slice(jerarquia.indexOf('create or replace function public.proteger_perfil()'))
+  assert.doesNotMatch(alta, /admin@gmail\.com/)
+  assert.match(alta, /v_tipo\s*:?=/)
+  assert.match(alta, /es_superadmin[\s\S]*false/)
+  assert.match(perfil, /v_jwt_role text := nullif\(current_setting\('request\.jwt\.claim\.role', true\), ''\)/)
+  assert.match(perfil, /session_user in \('postgres', 'supabase_admin'\)/)
+  assert.match(perfil, /public\.current_es_superadmin\(\)[\s\S]*empresa destino/)
+  assert.match(perfil, /m\.tenant_id = new\.tenant_activo_id[\s\S]*m\.activo[\s\S]*t\.activo/)
+})
+
+test('factusys-admin no permite escalar a admin ni tocar al superadmin', () => {
+  assert.match(adminFunction, /EMAIL_SUPERADMIN = 'admin@gmail.com'/)
+  assert.match(adminFunction, /Solo el superadmin puede asignar administradores/)
+  assert.match(adminFunction, /Los administradores son gestionados por el superadmin/)
+  assert.ok(adminFunction.indexOf('objetivo.es_superadmin') < adminFunction.indexOf('updateUserById'))
+  assert.match(adminFunction, /const tipo = 'vendedor'/)
+})
+
+test('factusys-superadmin valida que la sucursal pertenezca a la empresa', () => {
+  assert.match(panelFunction, /async function sucursalValida/)
+  assert.match(panelFunction, /sucursalValida\(admin, datos\.sucursal_id, tenantId\)/)
+  assert.match(panelFunction, /La sucursal no pertenece a esta empresa/)
 })

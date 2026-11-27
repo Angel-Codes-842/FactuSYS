@@ -87,6 +87,14 @@ async function tenantValido(admin, tenantId) {
   if (!data.activo) throw new HttpError("La empresa est\xE1 dada de baja", 409);
   return data;
 }
+async function sucursalValida(admin, valor, tenantId) {
+  if (!valor) return null;
+  const sucursalId = entero(valor, "Sucursal");
+  const { data, error } = await admin.from("sucursales_sucursal").select("id").eq("id", sucursalId).eq("tenant_id", tenantId).maybeSingle();
+  if (error) fallo(error, 500);
+  if (!data) throw new HttpError("La sucursal no pertenece a esta empresa", 404);
+  return sucursalId;
+}
 async function guardarConfiguracion(admin, tenant, valores) {
   const tenantId = Number(tenant.id);
   const { data: actual, error } = await admin.from("empresa_configuracionempresa").select("*").eq("tenant_id", tenantId).maybeSingle();
@@ -287,7 +295,7 @@ Deno.serve(async (req) => {
           user_id: userId,
           tenant_id: tenantId,
           rol: rol(datos.rol ?? datos.tipo ?? "vendedor"),
-          sucursal_id: datos.sucursal_id ? entero(datos.sucursal_id, "Sucursal") : null,
+          sucursal_id: await sucursalValida(admin, datos.sucursal_id, tenantId),
           activo: booleano(datos.activo, true)
         }, { onConflict: "user_id,tenant_id" }).select("*").single();
         if (error2) fallo(error2);
@@ -298,7 +306,7 @@ Deno.serve(async (req) => {
       await validarUltimoAdmin(admin, tenantId, userId, objetivoRol, objetivoActivo);
       const cambios = { rol: objetivoRol, activo: objetivoActivo };
       if (datos.sucursal_id !== void 0) {
-        cambios.sucursal_id = datos.sucursal_id ? entero(datos.sucursal_id, "Sucursal") : null;
+        cambios.sucursal_id = await sucursalValida(admin, datos.sucursal_id, tenantId);
       }
       const { data, error } = await admin.from("tenant_miembros").update(cambios).eq("user_id", userId).eq("tenant_id", tenantId).select("*").maybeSingle();
       if (error) fallo(error);
