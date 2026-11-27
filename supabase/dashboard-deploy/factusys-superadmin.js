@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       const { error: sucursalError } = await admin.from("sucursales_sucursal").insert({
         tenant_id: tenant.id,
         nombre: "Casa Matriz",
-        activa: true,
+        activo: true,
         direccion: "",
         telefono: ""
       });

@@ -138,6 +138,8 @@ test('factusys-superadmin administra empresas, memberships, usuarios, sucursales
   assert.match(panelFunction, /admin\.auth\.admin\.createUser/)
   assert.match(panelFunction, /admin\.auth\.admin\.updateUserById/)
   assert.match(panelFunction, /factpy_habilitado/)
+  assert.match(panelFunction, /nombre: 'Casa Matriz',[\s\S]{0,80}activo: true/)
+  assert.doesNotMatch(panelFunction, /activa: true/)
 })
 
 test('0012 quita el alta automática de superadmin y valida el tenant propio', () => {

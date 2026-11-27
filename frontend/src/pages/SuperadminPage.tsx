@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, FormControl, FormControlLabel, InputLabel,
-  MenuItem, Paper, Select, Snackbar, Switch, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
+  Alert, Box, Breadcrumbs, Button, Card, CardActions, CardContent, Chip,
+  CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+  FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Snackbar,
+  Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Tabs, TextField, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -41,7 +43,8 @@ export default function SuperadminPage() {
   const [cargando, setCargando] = useState(true)
   const [snack, setSnack] = useState('')
   const [tab, setTab] = useState(0)
-  const [filtroEmpresa, setFiltroEmpresa] = useState('')
+  const [empresaId, setEmpresaId] = useState<string | number | null>(null)
+  const [buscarEmpresa, setBuscarEmpresa] = useState('')
 
   const [empresaDialog, setEmpresaDialog] = useState(false)
   const [empresaEdit, setEmpresaEdit] = useState<any>(null)
@@ -83,29 +86,50 @@ export default function SuperadminPage() {
     return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>
   }
 
+  const mismo = (a: any, b: any) => String(a) === String(b)
+
+  const empresaActual = panel?.tenants.find((t: any) => mismo(t.id, empresaId)) ?? null
+  const dentroDeEmpresa = empresaId !== null && !!empresaActual
+
   const configDe = (tenantId: any) =>
-    panel?.configuraciones.find((c: any) => String(c.tenant_id) === String(tenantId))
+    panel?.configuraciones.find((c: any) => mismo(c.tenant_id, tenantId))
 
   const usuarioDe = (userId: string) =>
     panel?.usuarios.find((u: any) => u.id === userId)
 
   const nombreEmpresa = (tenantId: any) =>
-    panel?.tenants.find((t: any) => String(t.id) === String(tenantId))?.nombre ?? `Empresa ${tenantId}`
+    panel?.tenants.find((t: any) => mismo(t.id, tenantId))?.nombre ?? `Empresa ${tenantId}`
 
-  const porEmpresa = (lista: any[]) => lista.filter(item =>
-    !filtroEmpresa || String(item.tenant_id) === String(filtroEmpresa))
+  const miembrosDe = (tenantId: any) =>
+    (panel?.miembros ?? []).filter((m: any) => mismo(m.tenant_id, tenantId))
 
-  const selectorEmpresa = (
-    <FormControl size="small" sx={{ minWidth: 220 }}>
-      <InputLabel>Empresa</InputLabel>
-      <Select label="Empresa" value={filtroEmpresa} onChange={e => setFiltroEmpresa(String(e.target.value))}>
-        <MenuItem value="">Todas</MenuItem>
-        {(panel?.tenants ?? []).map((t: any) => (
-          <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  )
+  const usuariosDe = (tenantId: any) => {
+    const ids = new Set(miembrosDe(tenantId).map((m: any) => String(m.user_id)))
+    return (panel?.usuarios ?? []).filter((u: any) =>
+      ids.has(String(u.id)) || mismo(u.tenant_activo_id, tenantId))
+  }
+
+  const sucursalesDe = (tenantId: any) =>
+    (panel?.sucursales ?? []).filter((s: any) => mismo(s.tenant_id, tenantId))
+
+  const auditoriasDe = (tenantId: any) =>
+    (panel?.auditorias ?? []).filter((a: any) => mismo(a.tenant_id, tenantId))
+
+  const totalAdmins = (tenantId: any) =>
+    miembrosDe(tenantId).filter((m: any) => m.rol === 'admin' && m.activo).length
+
+  const totalVendedores = (tenantId: any) =>
+    miembrosDe(tenantId).filter((m: any) => m.rol === 'vendedor' && m.activo).length
+
+  const entrarEmpresa = (tenantId: any) => {
+    setEmpresaId(tenantId)
+    setTab(0)
+  }
+
+  const volverAEmpresas = () => {
+    setEmpresaId(null)
+    setTab(0)
+  }
 
   // ------------------------------------------------------------- empresas ---
   const abrirEmpresa = (item?: any) => {
@@ -132,8 +156,9 @@ export default function SuperadminPage() {
         await api.patch(`/superadmin/empresas/${empresaEdit.id}/`, empresaForm)
         setSnack('Empresa actualizada')
       } else {
-        await api.post('/superadmin/empresas/', empresaForm)
-        setSnack('Empresa creada')
+        const r = await api.post('/superadmin/empresas/', empresaForm)
+        setSnack('Empresa creada. Ya podés agregarle administradores')
+        if (r.data?.id) entrarEmpresa(r.data.id)
       }
       setEmpresaDialog(false)
       await cargar()
@@ -149,8 +174,15 @@ export default function SuperadminPage() {
     } catch (e) { setSnack(`Error: ${mensajeError(e)}`) }
   }
 
+  const bajaEmpresa = (item: any) => setConfirmar({
+    tipo: 'empresa', item,
+    titulo: item.activo ? 'Dar de baja empresa' : 'Reactivar empresa',
+    mensaje: `${item.activo ? '¿Dar de baja' : '¿Reactivar'} "${item.nombre}"?`,
+  })
+
   // --------------------------------------------------------- memberships ---
   const abrirMiembro = (item?: any) => {
+    const tenantId = item?.tenant_id ?? empresaId ?? panel?.tenants[0]?.id ?? ''
     setMiembroEdit(item ?? null)
     setMiembroForm(item ? {
       tenant_id: item.tenant_id,
@@ -158,7 +190,7 @@ export default function SuperadminPage() {
       rol: item.rol,
       sucursal_id: item.sucursal_id ?? '',
       activo: Boolean(item.activo),
-    } : formMiembroVacio(filtroEmpresa || panel?.tenants[0]?.id))
+    } : formMiembroVacio(tenantId))
     setMiembroDialog(true)
   }
 
@@ -190,7 +222,8 @@ export default function SuperadminPage() {
   }
 
   // ------------------------------------------------------------- usuarios ---
-  const abrirUsuario = (item?: any) => {
+  const abrirUsuario = (item?: any, tipo = 'vendedor') => {
+    const tenantId = item?.tenant_activo_id ?? empresaId ?? panel?.tenants[0]?.id ?? ''
     setUsuarioEdit(item ?? null)
     setUsuarioForm(item ? {
       email: item.email ?? '',
@@ -199,10 +232,10 @@ export default function SuperadminPage() {
       last_name: item.last_name ?? '',
       password: '',
       tipo: item.tipo ?? 'vendedor',
-      tenant_id: item.tenant_activo_id ?? panel?.tenants[0]?.id ?? '',
+      tenant_id: tenantId,
       activo: Boolean(item.activo),
       es_superadmin: Boolean(item.es_superadmin),
-    } : formUsuarioVacio(panel?.tenants[0]?.id))
+    } : { ...formUsuarioVacio(tenantId), tipo })
     setUsuarioDialog(true)
   }
 
@@ -215,7 +248,7 @@ export default function SuperadminPage() {
         setSnack('Usuario actualizado')
       } else {
         await api.post('/superadmin/usuarios/', usuarioForm)
-        setSnack('Usuario creado')
+        setSnack(usuarioForm.tipo === 'admin' ? 'Administrador creado' : 'Vendedor creado')
       }
       setUsuarioDialog(false)
       await cargar()
@@ -224,6 +257,7 @@ export default function SuperadminPage() {
 
   // ----------------------------------------------------------- sucursales ---
   const abrirSucursal = (item?: any) => {
+    const tenantId = item?.tenant_id ?? empresaId ?? panel?.tenants[0]?.id ?? ''
     setSucursalEdit(item ?? null)
     setSucursalForm(item ? {
       tenant_id: item.tenant_id,
@@ -231,7 +265,7 @@ export default function SuperadminPage() {
       direccion: item.direccion ?? '',
       telefono: item.telefono ?? '',
       activo: Boolean(item.activo),
-    } : formSucursalVacio(filtroEmpresa || panel?.tenants[0]?.id))
+    } : formSucursalVacio(tenantId))
     setSucursalDialog(true)
   }
 
@@ -293,222 +327,310 @@ export default function SuperadminPage() {
     </TableContainer>
   )
 
+  const chipEstado = (activo: boolean, activoLabel = 'Activa', bajaLabel = 'Dada de baja') => (
+    <Chip size="small" label={activo ? activoLabel : bajaLabel} color={activo ? 'success' : 'default'} />
+  )
+
+  const empresasFiltradas = (panel?.tenants ?? []).filter((t: any) => {
+    const clave = buscarEmpresa.trim().toLowerCase()
+    return !clave || `${t.nombre} ${t.ruc ?? ''}`.toLowerCase().includes(clave)
+  })
+
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2} flexWrap="wrap">
-        <Typography variant="h4" fontWeight="bold">
-          <SupervisorAccountIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-          Panel Superadmin
-        </Typography>
-        <Chip label="Control total" color="primary" variant="outlined" />
-      </Box>
+      {!dentroDeEmpresa ? (
+        <>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} gap={2} flexWrap="wrap">
+            <Typography variant="h4" fontWeight="bold">
+              <SupervisorAccountIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+              Panel Superadmin
+            </Typography>
+            <Chip label="Control total" color="primary" variant="outlined" />
+          </Box>
+          <Typography color="text.secondary" mb={3}>
+            Elegí una empresa para administrar sus usuarios, membresías, sucursales y auditoría.
+          </Typography>
 
-      <Tabs value={tab} onChange={(_, valor) => setTab(valor)} variant="scrollable" scrollButtons="auto" sx={{ mb: 3 }}>
-        <Tab label="Empresas" />
-        <Tab label="Membresías" />
-        <Tab label="Usuarios" />
-        <Tab label="Sucursales" />
-        <Tab label="Auditoría" />
-      </Tabs>
+          {encabezado(
+            `Empresas (${empresasFiltradas.length})`,
+            nuevoBoton('Nueva empresa', () => abrirEmpresa()),
+            <TextField
+              size="small" label="Buscar empresa" value={buscarEmpresa}
+              onChange={e => setBuscarEmpresa(e.target.value)}
+              sx={{ minWidth: 220 }}
+            />,
+          )}
 
-      {tab === 0 && <>
-        {encabezado('Empresas', nuevoBoton('Nueva empresa', () => abrirEmpresa()))}
-        {tabla(
-          <>
-            <TableCell>ID</TableCell><TableCell>Empresa</TableCell><TableCell>RUC</TableCell>
-            <TableCell align="center">Estado</TableCell><TableCell align="center">FactPy</TableCell>
-            <TableCell>Impresión</TableCell><TableCell align="right">Acciones</TableCell>
-          </>,
-          (panel?.tenants ?? []).map((t: any) => {
-            const factpy = configDe(t.id)?.factpy_habilitado ?? true
-            return (
-              <TableRow key={t.id} hover>
-                <TableCell>{t.id}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>
-                  {t.nombre}
-                  {panel?.tenant_activo_id === t.id && (
-                    <Chip size="small" color="primary" variant="outlined" label="En sesión" sx={{ ml: 1 }} />
-                  )}
-                </TableCell>
-                <TableCell>{t.ruc || '—'}</TableCell>
-                <TableCell align="center">
-                  <Chip size="small" label={t.activo ? 'Activa' : 'Dada de baja'} color={t.activo ? 'success' : 'default'} />
-                </TableCell>
-                <TableCell align="center">
-                  <FormControlLabel
-                    control={<Switch checked={factpy} onChange={() => alternarFactpy(t)} size="small" />}
-                    label={factpy ? 'Electrónica' : 'Autoimpresa'}
-                  />
-                </TableCell>
-                <TableCell>{configDe(t.id)?.formato_impresion === 'ticket80' ? 'Ticket 80mm' : 'A4'}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => abrirEmpresa(t)}>Editar</Button>
-                  <Button
-                    size="small"
-                    color={t.activo ? 'error' : 'success'}
-                    onClick={() => setConfirmar({
-                      tipo: 'empresa', item: t,
-                      titulo: t.activo ? 'Dar de baja empresa' : 'Reactivar empresa',
-                      mensaje: `${t.activo ? '¿Dar de baja' : '¿Reactivar'} "${t.nombre}"?`,
-                    })}
-                  >
-                    {t.activo ? 'Baja' : 'Activar'}
-                  </Button>
-                  {t.activo && (
-                    <Button size="small" onClick={() => { setFiltroEmpresa(t.id); setTab(1) }}>
+          <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(320px, 1fr))" gap={2}>
+            {empresasFiltradas.map((t: any) => {
+              const factpy = configDe(t.id)?.factpy_habilitado ?? true
+              return (
+                <Card key={t.id} variant="outlined" sx={{ height: '100%' }}>
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                      <Typography variant="h6" fontWeight="bold">{t.nombre}</Typography>
+                      {chipEstado(Boolean(t.activo))}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" mt={0.5}>
+                      RUC {t.ruc || '—'} · ID {t.id}
+                    </Typography>
+                    <Box display="flex" gap={0.5} flexWrap="wrap" mt={1.5}>
+                      <Chip size="small" variant="outlined" label={factpy ? 'FactPy' : 'Autoimpresa'} />
+                      <Chip size="small" variant="outlined" label={
+                        configDe(t.id)?.formato_impresion === 'ticket80' ? 'Ticket 80mm' : 'A4'
+                      } />
+                      {panel?.tenant_activo_id === t.id && (
+                        <Chip size="small" color="primary" variant="outlined" label="En sesión" />
+                      )}
+                    </Box>
+                    <Divider sx={{ my: 1.5 }} />
+                    <Typography variant="body2">
+                      Administradores: <b>{totalAdmins(t.id)}</b> · Vendedores: <b>{totalVendedores(t.id)}</b>
+                    </Typography>
+                    <Typography variant="body2">
+                      Sucursales activas: <b>{sucursalesDe(t.id).filter((s: any) => s.activo).length}</b>
+                    </Typography>
+                  </CardContent>
+                  <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2, gap: 0.5 }}>
+                    <Button size="small" onClick={() => abrirEmpresa(t)}>Editar</Button>
+                    <Button
+                      size="small"
+                      color={t.activo ? 'error' : 'success'}
+                      onClick={() => bajaEmpresa(t)}
+                    >
+                      {t.activo ? 'Baja' : 'Activar'}
+                    </Button>
+                    <Button size="small" variant="contained" onClick={() => entrarEmpresa(t.id)}>
                       Administrar
                     </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            )
-          })
-        )}
-      </>}
+                  </CardActions>
+                </Card>
+              )
+            })}
+          </Box>
+        </>
+      ) : (
+        <>
+          <Breadcrumbs separator="›" sx={{ mb: 1 }}>
+            <Button size="small" color="inherit" startIcon={<ArrowBackIcon />} onClick={volverAEmpresas}>
+              Empresas
+            </Button>
+            <Typography color="text.primary">{empresaActual.nombre}</Typography>
+          </Breadcrumbs>
 
-      {tab === 1 && <>
-        {encabezado('Membresías', nuevoBoton('Nueva membresía', () => abrirMiembro()), selectorEmpresa)}
-        {tabla(
-          <>
-            <TableCell>Empresa</TableCell><TableCell>Usuario</TableCell><TableCell>Email</TableCell>
-            <TableCell>Rol</TableCell><TableCell>Sucursal</TableCell>
-            <TableCell align="center">Estado</TableCell><TableCell align="right">Acciones</TableCell>
-          </>,
-          porEmpresa(panel?.miembros ?? []).map((m: any) => {
-            const u = usuarioDe(m.user_id)
-            const sucursal = (panel?.sucursales ?? []).find((s: any) => s.id === m.sucursal_id)
-            return (
-              <TableRow key={`${m.tenant_id}-${m.user_id}`} hover>
-                <TableCell>{nombreEmpresa(m.tenant_id)}</TableCell>
-                <TableCell>{u?.username ?? m.user_id.slice(0, 8)}</TableCell>
-                <TableCell>{u?.email ?? '—'}</TableCell>
-                <TableCell><Chip size="small" label={m.rol} variant="outlined" /></TableCell>
-                <TableCell>{sucursal?.nombre ?? 'Todas'}</TableCell>
-                <TableCell align="center">
-                  <Chip size="small" label={m.activo ? 'Activa' : 'Suspendida'} color={m.activo ? 'success' : 'default'} />
-                </TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => abrirMiembro(m)}>Editar</Button>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} gap={2} flexWrap="wrap">
+            <Typography variant="h4" fontWeight="bold">{empresaActual.nombre}</Typography>
+            <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+              {chipEstado(Boolean(empresaActual.activo))}
+              <Chip
+                size="small"
+                variant="outlined"
+                label={configDe(empresaActual.id)?.factpy_habilitado ? 'FactPy activo' : 'Autoimpresa'}
+              />
+              <Button size="small" onClick={() => abrirEmpresa(empresaActual)}>Editar datos</Button>
+            </Box>
+          </Box>
+          <Typography color="text.secondary" mb={3}>
+            Administración de esta empresa. Los cambios quedan limitados a {empresaActual.nombre}.
+          </Typography>
+
+          <Tabs value={tab} onChange={(_, valor) => setTab(valor)} variant="scrollable" scrollButtons="auto" sx={{ mb: 3 }}>
+            <Tab label="Resumen" />
+            <Tab label="Usuarios" />
+            <Tab label="Membresías" />
+            <Tab label="Sucursales" />
+            <Tab label="Auditoría" />
+          </Tabs>
+
+          {tab === 0 && <>
+            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
+                <Typography variant="h6" fontWeight="bold">Datos de la empresa</Typography>
+                <Box display="flex" gap={1}>
+                  <Button size="small" onClick={() => abrirEmpresa(empresaActual)}>Editar datos</Button>
                   <Button
                     size="small"
-                    color={m.activo ? 'error' : 'success'}
-                    onClick={() => m.activo
-                      ? setConfirmar({
-                          tipo: 'miembro', item: m,
-                          titulo: 'Suspender membresía',
-                          mensaje: `¿Suspender a ${u?.username ?? 'este usuario'} en ${nombreEmpresa(m.tenant_id)}?`,
-                        })
-                      : activarMiembro(m)
-                    }
+                    color={empresaActual.activo ? 'error' : 'success'}
+                    onClick={() => bajaEmpresa(empresaActual)}
                   >
-                    {m.activo ? 'Suspender' : 'Activar'}
+                    {empresaActual.activo ? 'Dar de baja' : 'Reactivar'}
                   </Button>
-                </TableCell>
-              </TableRow>
-            )
-          })
-        )}
-      </>}
+                </Box>
+              </Box>
+              <Divider sx={{ my: 1.5 }} />
+              <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap={1.5}>
+                <Typography variant="body2"><b>RUC:</b> {empresaActual.ruc || '—'}</Typography>
+                <Typography variant="body2"><b>Dirección:</b> {configDe(empresaActual.id)?.direccion || '—'}</Typography>
+                <Typography variant="body2"><b>Teléfono:</b> {configDe(empresaActual.id)?.telefono || '—'}</Typography>
+                <Typography variant="body2"><b>Ciudad:</b> {configDe(empresaActual.id)?.ciudad || '—'}</Typography>
+                <Typography variant="body2"><b>Rubro:</b> {configDe(empresaActual.id)?.rubro || 'general'}</Typography>
+                <Typography variant="body2">
+                  <b>Impresión:</b> {configDe(empresaActual.id)?.formato_impresion === 'ticket80' ? 'Ticket 80mm' : 'A4'}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                sx={{ mt: 1.5 }}
+                control={
+                  <Switch
+                    checked={Boolean(configDe(empresaActual.id)?.factpy_habilitado ?? true)}
+                    onChange={() => alternarFactpy(empresaActual)}
+                  />
+                }
+                label="FactPy habilitado (facturación electrónica)"
+              />
+            </Paper>
 
-      {tab === 2 && <>
-        {encabezado('Usuarios de Auth', nuevoBoton('Nuevo usuario', () => abrirUsuario()))}
-        {tabla(
-          <>
-            <TableCell>Email</TableCell><TableCell>Usuario</TableCell><TableCell>Nombre</TableCell>
-            <TableCell>Rol</TableCell><TableCell>Empresa activa</TableCell>
-            <TableCell align="center">Superadmin</TableCell><TableCell align="center">Estado</TableCell>
-            <TableCell align="right">Acciones</TableCell>
-          </>,
-          (panel?.usuarios ?? []).map((u: any) => (
-            <TableRow key={u.id} hover>
-              <TableCell>{u.email || '—'}</TableCell>
-              <TableCell>{u.username}</TableCell>
-              <TableCell>{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</TableCell>
-              <TableCell><Chip size="small" label={u.tipo} variant="outlined" /></TableCell>
-              <TableCell>{u.tenant_activo_id ? nombreEmpresa(u.tenant_activo_id) : '—'}</TableCell>
-              <TableCell align="center">
-                <Chip size="small" label={u.es_superadmin ? 'Sí' : 'No'} color={u.es_superadmin ? 'primary' : 'default'} />
-              </TableCell>
-              <TableCell align="center">
-                <Chip size="small" label={u.activo ? 'Activo' : 'Baja'} color={u.activo ? 'success' : 'default'} />
-              </TableCell>
-              <TableCell align="right">
-                <Button size="small" onClick={() => abrirUsuario(u)}>Editar</Button>
-                <Button
-                  size="small"
-                  color="error"
-                  disabled={u.id === user?.id}
-                  onClick={() => setConfirmar({
-                    tipo: 'usuario', item: u,
-                    titulo: 'Dar de baja usuario',
-                    mensaje: `¿Dar de baja a ${u.username}? Quedará sin acceso a todas las empresas.`,
-                  })}
-                >
-                  Baja
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))
-        )}
-      </>}
+            <Typography variant="h6" fontWeight="bold" mb={1}>Accesos rápidos</Typography>
+            <Box display="flex" gap={1} flexWrap="wrap">
+              <Button variant="outlined" onClick={() => setTab(1)}>Usuarios</Button>
+              <Button variant="outlined" onClick={() => setTab(2)}>Membresías</Button>
+              <Button variant="outlined" onClick={() => setTab(3)}>Sucursales</Button>
+              <Button variant="outlined" onClick={() => setTab(4)}>Auditoría</Button>
+            </Box>
+          </>}
 
-      {tab === 3 && <>
-        {encabezado('Sucursales', nuevoBoton('Nueva sucursal', () => abrirSucursal()), selectorEmpresa)}
-        {tabla(
-          <>
-            <TableCell>Empresa</TableCell><TableCell>Sucursal</TableCell><TableCell>Dirección</TableCell>
-            <TableCell>Teléfono</TableCell><TableCell align="center">Estado</TableCell>
-            <TableCell align="right">Acciones</TableCell>
-          </>,
-          porEmpresa(panel?.sucursales ?? []).map((s: any) => (
-            <TableRow key={s.id} hover>
-              <TableCell>{nombreEmpresa(s.tenant_id)}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{s.nombre}</TableCell>
-              <TableCell>{s.direccion || '—'}</TableCell>
-              <TableCell>{s.telefono || '—'}</TableCell>
-              <TableCell align="center">
-                <Chip size="small" label={s.activo ? 'Activa' : 'Baja'} color={s.activo ? 'success' : 'default'} />
-              </TableCell>
-              <TableCell align="right">
-                <Button size="small" onClick={() => abrirSucursal(s)}>Editar</Button>
-                <Button
-                  size="small"
-                  color={s.activo ? 'error' : 'success'}
-                  onClick={() => setConfirmar({
-                    tipo: 'sucursal', item: s,
-                    titulo: s.activo ? 'Dar de baja sucursal' : 'Reactivar sucursal',
-                    mensaje: `${s.activo ? '¿Dar de baja' : '¿Reactivar'} "${s.nombre}"?`,
-                  })}
-                >
-                  {s.activo ? 'Baja' : 'Activar'}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))
-        )}
-      </>}
+          {tab === 1 && <>
+            {encabezado(
+              `Usuarios de ${empresaActual.nombre}`,
+              <Box display="flex" gap={1} flexWrap="wrap">
+                {nuevoBoton('Nuevo administrador', () => abrirUsuario(undefined, 'admin'))}
+                {nuevoBoton('Nuevo vendedor', () => abrirUsuario(undefined, 'vendedor'))}
+              </Box>,
+            )}
+            {tabla(
+              <>
+                <TableCell>Email</TableCell><TableCell>Usuario</TableCell><TableCell>Nombre</TableCell>
+                <TableCell>Rol</TableCell><TableCell align="center">Superadmin</TableCell>
+                <TableCell align="center">Estado</TableCell><TableCell align="right">Acciones</TableCell>
+              </>,
+              usuariosDe(empresaActual.id).map((u: any) => (
+                <TableRow key={u.id} hover>
+                  <TableCell>{u.email || '—'}</TableCell>
+                  <TableCell>{u.username}</TableCell>
+                  <TableCell>{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</TableCell>
+                  <TableCell><Chip size="small" label={u.tipo} variant="outlined" /></TableCell>
+                  <TableCell align="center">
+                    <Chip size="small" label={u.es_superadmin ? 'Sí' : 'No'} color={u.es_superadmin ? 'primary' : 'default'} />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip size="small" label={u.activo ? 'Activo' : 'Baja'} color={u.activo ? 'success' : 'default'} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => abrirUsuario(u)}>Editar</Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      disabled={u.id === user?.id}
+                      onClick={() => setConfirmar({
+                        tipo: 'usuario', item: u,
+                        titulo: 'Dar de baja usuario',
+                        mensaje: `¿Dar de baja a ${u.username}? Quedará sin acceso a todas las empresas.`,
+                      })}
+                    >
+                      Baja
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )),
+            )}
+          </>}
 
-      {tab === 4 && <>
-        {encabezado('Auditoría (últimos 200 eventos)', undefined, selectorEmpresa)}
-        {tabla(
-          <>
-            <TableCell>Fecha</TableCell><TableCell>Empresa</TableCell><TableCell>Usuario</TableCell>
-            <TableCell>Acción</TableCell><TableCell>Modelo</TableCell><TableCell>Registro</TableCell>
-            <TableCell>Detalles</TableCell>
-          </>,
-          porEmpresa(panel?.auditorias ?? []).map((a: any) => (
-            <TableRow key={a.id} hover>
-              <TableCell>{a.fecha ? new Date(a.fecha).toLocaleString() : '—'}</TableCell>
-              <TableCell>{a.tenant_id ? nombreEmpresa(a.tenant_id) : 'Global'}</TableCell>
-              <TableCell>{a.usuario_nombre}</TableCell>
-              <TableCell>{a.accion}</TableCell>
-              <TableCell>{a.modelo}</TableCell>
-              <TableCell>{a.registro_id}</TableCell>
-              <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.detalles}</TableCell>
-            </TableRow>
-          ))
-        )}
-      </>}
+          {tab === 2 && <>
+            {encabezado('Membresías', nuevoBoton('Nueva membresía', () => abrirMiembro()))}
+            {tabla(
+              <>
+                <TableCell>Usuario</TableCell><TableCell>Email</TableCell><TableCell>Rol</TableCell>
+                <TableCell>Sucursal</TableCell><TableCell align="center">Estado</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </>,
+              miembrosDe(empresaActual.id).map((m: any) => {
+                const u = usuarioDe(m.user_id)
+                const sucursal = (panel?.sucursales ?? []).find((s: any) => s.id === m.sucursal_id)
+                return (
+                  <TableRow key={`${m.tenant_id}-${m.user_id}`} hover>
+                    <TableCell>{u?.username ?? m.user_id.slice(0, 8)}</TableCell>
+                    <TableCell>{u?.email ?? '—'}</TableCell>
+                    <TableCell><Chip size="small" label={m.rol} variant="outlined" /></TableCell>
+                    <TableCell>{sucursal?.nombre ?? 'Todas'}</TableCell>
+                    <TableCell align="center">
+                      <Chip size="small" label={m.activo ? 'Activa' : 'Suspendida'} color={m.activo ? 'success' : 'default'} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => abrirMiembro(m)}>Editar</Button>
+                      <Button
+                        size="small"
+                        color={m.activo ? 'error' : 'success'}
+                        onClick={() => m.activo
+                          ? setConfirmar({
+                              tipo: 'miembro', item: m,
+                              titulo: 'Suspender membresía',
+                              mensaje: `¿Suspender a ${u?.username ?? 'este usuario'} en ${empresaActual.nombre}?`,
+                            })
+                          : activarMiembro(m)
+                        }
+                      >
+                        {m.activo ? 'Suspender' : 'Activar'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              }),
+            )}
+          </>}
+
+          {tab === 3 && <>
+            {encabezado('Sucursales', nuevoBoton('Nueva sucursal', () => abrirSucursal()))}
+            {tabla(
+              <>
+                <TableCell>Sucursal</TableCell><TableCell>Dirección</TableCell><TableCell>Teléfono</TableCell>
+                <TableCell align="center">Estado</TableCell><TableCell align="right">Acciones</TableCell>
+              </>,
+              sucursalesDe(empresaActual.id).map((s: any) => (
+                <TableRow key={s.id} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>{s.nombre}</TableCell>
+                  <TableCell>{s.direccion || '—'}</TableCell>
+                  <TableCell>{s.telefono || '—'}</TableCell>
+                  <TableCell align="center">{chipEstado(Boolean(s.activo), 'Activa', 'Baja')}</TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => abrirSucursal(s)}>Editar</Button>
+                    <Button
+                      size="small"
+                      color={s.activo ? 'error' : 'success'}
+                      onClick={() => setConfirmar({
+                        tipo: 'sucursal', item: s,
+                        titulo: s.activo ? 'Dar de baja sucursal' : 'Reactivar sucursal',
+                        mensaje: `${s.activo ? '¿Dar de baja' : '¿Reactivar'} "${s.nombre}"?`,
+                      })}
+                    >
+                      {s.activo ? 'Baja' : 'Activar'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )),
+            )}
+          </>}
+
+          {tab === 4 && <>
+            {encabezado('Auditoría (últimos 200 eventos)')}
+            {tabla(
+              <>
+                <TableCell>Fecha</TableCell><TableCell>Usuario</TableCell><TableCell>Acción</TableCell>
+                <TableCell>Modelo</TableCell><TableCell>Registro</TableCell><TableCell>Detalles</TableCell>
+              </>,
+              auditoriasDe(empresaActual.id).map((a: any) => (
+                <TableRow key={a.id} hover>
+                  <TableCell>{a.fecha ? new Date(a.fecha).toLocaleString() : '—'}</TableCell>
+                  <TableCell>{a.usuario_nombre}</TableCell>
+                  <TableCell>{a.accion}</TableCell>
+                  <TableCell>{a.modelo}</TableCell>
+                  <TableCell>{a.registro_id}</TableCell>
+                  <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.detalles}</TableCell>
+                </TableRow>
+              )),
+            )}
+          </>}
+        </>
+      )}
 
       <Dialog open={empresaDialog} onClose={() => setEmpresaDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{empresaEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
@@ -564,7 +686,7 @@ export default function SuperadminPage() {
         <DialogContent>
           <FormControl fullWidth margin="dense" size="small">
             <InputLabel>Empresa</InputLabel>
-            <Select label="Empresa" value={miembroForm.tenant_id} disabled={!!miembroEdit}
+            <Select label="Empresa" value={miembroForm.tenant_id} disabled
               onChange={e => setMiembroForm({ ...miembroForm, tenant_id: e.target.value, sucursal_id: '' })}>
               {(panel?.tenants ?? []).map((t: any) => (
                 <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>
@@ -594,7 +716,7 @@ export default function SuperadminPage() {
               onChange={e => setMiembroForm({ ...miembroForm, sucursal_id: e.target.value })}>
               <MenuItem value="">Todas</MenuItem>
               {(panel?.sucursales ?? [])
-                .filter((s: any) => String(s.tenant_id) === String(miembroForm.tenant_id))
+                .filter((s: any) => mismo(s.tenant_id, miembroForm.tenant_id))
                 .map((s: any) => <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>)}
             </Select>
           </FormControl>
@@ -634,8 +756,8 @@ export default function SuperadminPage() {
             </Select>
           </FormControl>
           <FormControl fullWidth margin="dense" size="small">
-            <InputLabel>Empresa activa</InputLabel>
-            <Select label="Empresa activa" value={usuarioForm.tenant_id}
+            <InputLabel>Empresa</InputLabel>
+            <Select label="Empresa" value={usuarioForm.tenant_id} disabled
               onChange={e => setUsuarioForm({ ...usuarioForm, tenant_id: e.target.value })}>
               {(panel?.tenants ?? []).map((t: any) => (
                 <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>
@@ -645,9 +767,6 @@ export default function SuperadminPage() {
           <FormControlLabel control={<Switch checked={usuarioForm.activo}
             onChange={e => setUsuarioForm({ ...usuarioForm, activo: e.target.checked })} />}
             label="Usuario activo" />
-          <FormControlLabel control={<Switch checked={usuarioForm.es_superadmin}
-            onChange={e => setUsuarioForm({ ...usuarioForm, es_superadmin: e.target.checked })} />}
-            label="Superadmin (acceso al panel)" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUsuarioDialog(false)} color="inherit">Cancelar</Button>
@@ -660,7 +779,7 @@ export default function SuperadminPage() {
         <DialogContent>
           <FormControl fullWidth margin="dense" size="small">
             <InputLabel>Empresa</InputLabel>
-            <Select label="Empresa" value={sucursalForm.tenant_id}
+            <Select label="Empresa" value={sucursalForm.tenant_id} disabled
               onChange={e => setSucursalForm({ ...sucursalForm, tenant_id: e.target.value })}>
               {(panel?.tenants ?? []).map((t: any) => (
                 <MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>
